@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Image as ImageIcon, X, Upload as UploadIcon, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, X, Upload as UploadIcon } from 'lucide-react'
 import { MAX_IMAGES_PER_ISSUE } from '@/lib/utils/constants'
 
 interface ImageUploaderProps {
@@ -17,12 +17,18 @@ export default function ImageUploader({
   onRemove,
   disabled = false,
 }: ImageUploaderProps) {
+  // ✅ 1. State defined INSIDE the component
+  const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (files) {
+    if (!files) return
+    
+    setCompressing(true) // ✅ Logic triggers here
+    
+    try {
       const fileArray = Array.from(files)
       
       // Validate file types
@@ -38,12 +44,17 @@ export default function ImageUploader({
       const newPreviews = validFiles.map(file => URL.createObjectURL(file))
       setPreviewUrls(prev => [...prev, ...newPreviews])
       
+      // Simulate a small delay so the user sees the spinner (optional, but good UX)
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       onUpload(validFiles)
       
       // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+    } finally {
+      setCompressing(false) // ✅ Logic ends here
     }
   }
   
@@ -52,14 +63,16 @@ export default function ImageUploader({
   }
   
   const removeImage = (index: number) => {
-    // Revoke preview URL
-    URL.revokeObjectURL(previewUrls[index])
+    // Revoke preview URL to prevent memory leaks
+    if (previewUrls[index]) {
+      URL.revokeObjectURL(previewUrls[index])
+    }
     setPreviewUrls(prev => prev.filter((_, i) => i !== index))
     onRemove(index)
   }
   
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-lg shadow p-6 relative">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-black">Upload Images</h3>
         <span className="text-sm text-gray-500">
@@ -81,16 +94,6 @@ export default function ImageUploader({
                 src={previewUrls[index] || URL.createObjectURL(file)}
                 alt={`Preview ${index + 1}`}
                 className="w-full h-full object-cover"
-                onLoad={() => {
-                  if (!previewUrls[index]) {
-                    const url = URL.createObjectURL(file)
-                    setPreviewUrls(prev => {
-                      const newPreviews = [...prev]
-                      newPreviews[index] = url
-                      return newPreviews
-                    })
-                  }
-                }}
               />
             </div>
             
@@ -98,7 +101,7 @@ export default function ImageUploader({
               <button
                 type="button"
                 onClick={() => removeImage(index)}
-                className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                 title="Remove image"
               >
                 <X className="w-4 h-4" />
@@ -134,12 +137,12 @@ export default function ImageUploader({
         disabled={disabled || images.length >= MAX_IMAGES_PER_ISSUE}
       />
       
-      {/* Upload Button */}
+      {/* Upload Button (Mobile Friendly) */}
       {images.length < MAX_IMAGES_PER_ISSUE && !disabled && (
         <button
           type="button"
           onClick={triggerFileInput}
-          className="w-full flex items-center justify-center px-4 py-3 border-2 border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center px-4 py-3 border-2 border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-50 mb-4"
           disabled={images.length >= MAX_IMAGES_PER_ISSUE}
         >
           <UploadIcon className="w-5 h-5 mr-2" />
@@ -162,6 +165,17 @@ export default function ImageUploader({
           </div>
         </div>
       </div>
+
+      {/* ✅ 2. THE LOADING OVERLAY (Added here) */}
+      {compressing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 text-center max-w-sm mx-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <p className="text-gray-900 font-medium text-lg">Compressing images...</p>
+            <p className="text-sm text-gray-600 mt-2">This may take a few seconds</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -395,11 +395,32 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {filteredIssues.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50">
-                        <AlertTriangle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-700 text-lg">No issues found</p>
-                    </div>
-                ) : (
+  <div className="text-center py-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
+    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <CheckCircle2 className="w-12 h-12 text-blue-600" />
+    </div>
+    <h3 className="text-xl font-bold text-gray-900 mb-2">
+      {stats.total === 0 ? 'All Clear!' : 'No Matching Issues'}
+    </h3>
+    <p className="text-gray-600 max-w-md mx-auto mb-4">
+      {stats.total === 0 
+        ? "No issues reported today. Great job, marshals!" 
+        : `${stats.total} issue(s) found, but none match your current filters.`}
+    </p>
+    {(filterStatus !== 'all' || filterBlock !== 'all' || searchQuery) && (
+      <button
+        onClick={() => {
+          setFilterStatus('all')
+          setFilterBlock('all')
+          setSearchQuery('')
+        }}
+        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Clear All Filters
+      </button>
+    )}
+  </div>
+) : (
                     <div className="divide-y">
                         {filteredIssues.map((issue) => (
                             <IssueCard
