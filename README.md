@@ -1,36 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏛️ MAHE Facility Management System
 
-## Getting Started
+**Zero-Cost Progressive Web Application for Streamlining Daily Facility Inspections at Manipal Academy of Higher Education**
 
-First, run the development server:
+![MAHE Logo](https://mahe.edu.in/images/mahe-logo.png)
 
+---
+
+## 📌 Table of Contents
+- [🌟 Overview](#overview)
+- [🚀 Key Features](#key-features)
+- [🛠️ Tech Stack](#tech-stack)
+- [📋 Prerequisites](#prerequisites)
+- [⚡ Quick Start Guide](#quick-start-guide)
+- [🗄️ Supabase Setup (Critical)](#supabase-setup-critical)
+- [📧 SMTP Configuration Explained](#smtp-configuration-explained)
+- [♻️ Auto-Cleanup System (2-Day Retention)](#auto-cleanup-system-2-day-retention)
+- [📱 Usage Guide](#usage-guide)
+- [🌐 Deployment to Vercel](#deployment-to-vercel)
+- [🐛 Troubleshooting](#troubleshooting)
+- [📁 Project Structure](#project-structure)
+- [🔒 Security Notes](#security-notes)
+- [📄 License](#license)
+
+---
+
+## 🌟 Overview
+
+This system transforms MAHE's fragmented facility inspection process into a streamlined digital workflow. Marshals report issues via mobile PWA, admins review after 6 PM, and directors receive professional reports automatically—all with **zero infrastructure costs** using Supabase and Vercel free tiers.
+
+**Key Innovation**: Replaces WhatsApp chaos and paper forms with structured digital workflows while maintaining offline capability for campus connectivity challenges.
+
+---
+
+## 🚀 Key Features
+
+### 👷 For Marshals
+- ✅ **Offline-First PWA**: Works without internet, auto-syncs when connected
+- ✅ **Digital Checklist**: 19-item standardized inspection checklist
+- ✅ **Smart Issue Reporting**: Auto-populated fields from checklist
+- ✅ **Image Upload**: Up to 10 images per issue (auto-compressed to ~300KB)
+- ✅ **Auto-Save**: Saves every 10 seconds
+- ✅ **6 PM Deadline**: Form locks automatically (15-min grace period)
+- ✅ **Simple Login**: Just Marshal ID + Name (no complex auth)
+
+### 👨‍💼 For Admin
+- ✅ **Post-6PM Access Only**: Clean daily review workflow
+- ✅ **Email Notification**: Automatic summary at 6 PM
+- ✅ **One-Click Toggle**: Approve/deny with instant save
+- ✅ **Floor Coverage Alerts**: Visual warnings for unchecked floors
+- ✅ **Image Gallery**: Lightbox viewer for Supabase Storage images
+- ✅ **Report Generation**: One-click PDF + Excel download
+- ✅ **Auto-Email**: Send reports to director instantly
+
+### 👔 For Director
+- ✅ **Professional Reports**: PDF (visual) + Excel (filterable)
+- ✅ **Structured Data**: Consistent format daily
+- ✅ **Clickable Image Links**: View full-resolution photos
+- ✅ **Guaranteed Delivery**: Email sent even with zero issues
+- ✅ **Small Attachments**: <5MB email size (images stored separately)
+
+### ♻️ Auto-Cleanup System
+- ✅ **2-Day Data Retention**: All reports automatically cleared after 48 hours
+- ✅ **Storage Optimization**: Images + database records deleted automatically
+- ✅ **Analytics Preservation**: Aggregated analytics kept permanently
+- ✅ **Daily Cron Job**: Runs at 2 AM IST automatically
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Why |
+|-----------|------------|-----|
+| **Frontend** | Next.js 14 (App Router), React 18, TypeScript | Modern React framework with SSR |
+| **Styling** | Tailwind CSS | Rapid UI development |
+| **PWA** | next-pwa | Offline capability, installable app |
+| **Database** | Supabase PostgreSQL | Free tier, RLS, real-time |
+| **Storage** | Supabase Storage | Free 1GB storage, CDN delivery |
+| **Auth** | Supabase Auth | Built-in security, session management |
+| **PDF** | PDFKit | Server-side PDF generation (Node.js compatible) |
+| **Excel** | ExcelJS | Professional spreadsheet generation |
+| **Deployment** | Vercel | Free tier, automatic deployments |
+| **Email** | Nodemailer + Gmail SMTP | Free email delivery |
+| **Cleanup** | Vercel Cron Jobs | Automated daily cleanup |
+
+---
+
+## 📋 Prerequisites
+
+✅ **Required**:
+- Node.js 18+ installed ([Download](https://nodejs.org))
+- Supabase account ([Sign up free](https://supabase.com))
+- Vercel account ([Sign up free](https://vercel.com))
+- Gmail account (for SMTP)
+
+⚠️ **Recommended**:
+- Git installed
+- VS Code or similar editor
+- Basic terminal/command line knowledge
+
+---
+
+## ⚡ Quick Start Guide
+
+### Step 1: Clone & Install
 ```bash
+git clone https://github.com/your-org/mahe-facility-system.git
+cd mahe-facility-system
+npm install
+
+: Step 2: Set Up Supabase (See next section)
+Create Supabase project
+Run database schema
+Create storage bucket
+Create admin user
+
+: Step 3: Configure Environment
+
+cp .env.example .env.local
+# Edit .env.local with your credentials (see SMTP section below)
+
+:  Step 4: Run Development Server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
