@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import MarshalActivityChart from './components/MarshalActivityChart'
+
 import {
     RefreshCw,
     Download,
@@ -20,6 +22,7 @@ import { getTodayDateString } from '@/lib/utils/time'
 import IssueCard from './components/IssueCard'
 import FloorCoverageAlert from './components/FloorCoverageAlert'
 import AnalyticsSection from './components/AnalyticsSection'
+import React from 'react'
 
 export default function AdminDashboardPage() {
     const router = useRouter()
@@ -27,9 +30,15 @@ export default function AdminDashboardPage() {
     const [issues, setIssues] = useState<any[]>([])
     const [filteredIssues, setFilteredIssues] = useState<any[]>([])
     const [floorCoverage, setFloorCoverage] = useState<any[]>([])
+    const [marshalActivity, setMarshalActivity] = useState<any[]>([])
     const [showEmailModal, setShowEmailModal] = useState(false)
     const [emailLoading, setEmailLoading] = useState(false)
     const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'denied'>('all')
+
+    const uniqueMarshalsCount = React.useMemo(() => {
+        if (!floorCoverage.length) return 0
+        return new Set(floorCoverage.map(fc => fc.marshal_id)).size
+    }, [floorCoverage])
     const [filterBlock, setFilterBlock] = useState<string>('all')
     const [searchQuery, setSearchQuery] = useState('')
     const [stats, setStats] = useState({
@@ -57,6 +66,13 @@ export default function AdminDashboardPage() {
             setLoading(true)
 
             const today = getTodayDateString()
+
+            const { data: activityData } = await supabase
+                .from('daily_marshal_counts')
+                .select('*')
+                .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // Last 30 days
+                .order('date', { ascending: true })
+            setMarshalActivity(activityData || [])
 
             // ✅ FIXED: Removed marshals(name) join - table doesn't exist anymore
             const { data: issuesData, error: issuesError } = await supabase
@@ -130,6 +146,7 @@ export default function AdminDashboardPage() {
 
     const handleStatusToggle = async (issueId: string, newStatus: 'approved' | 'denied') => {
         try {
+            // ✅ DIRECT SUPABASE UPDATE (NO API CALL)
             const { error } = await supabase
                 .from('issues')
                 .update({ status: newStatus })
@@ -137,7 +154,7 @@ export default function AdminDashboardPage() {
 
             if (error) throw error
 
-            // Optimistic update
+            // Optimistic UI update
             setIssues(prev =>
                 prev.map(issue =>
                     issue.id === issueId ? { ...issue, status: newStatus } : issue
@@ -290,10 +307,13 @@ export default function AdminDashboardPage() {
                 <div className="bg-white rounded-lg shadow p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-700">Pending</p>
-                            <p className="text-3xl font-bold text-yellow-600 mt-1">{stats.pending}</p>
+                            <p className="text-sm text-gray-700">Active Marshals Today</p>
+                            <p className="text-3xl font-bold text-orange-600 mt-1">{uniqueMarshalsCount}</p>
+                            <p className="text-sm text-orange-600 mt-1">
+                                {uniqueMarshalsCount} of {Math.ceil(floorCoverage.length / 6)} floors covered
+                            </p>
                         </div>
-                        <Clock className="w-12 h-12 text-yellow-100" />
+                        <Users className="w-12 h-12 text-orange-100" />
                     </div>
                 </div>
 
@@ -395,32 +415,11 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {filteredIssues.length === 0 ? (
-  <div className="text-center py-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
-    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-      <CheckCircle2 className="w-12 h-12 text-blue-600" />
-    </div>
-    <h3 className="text-xl font-bold text-gray-900 mb-2">
-      {stats.total === 0 ? 'All Clear!' : 'No Matching Issues'}
-    </h3>
-    <p className="text-gray-600 max-w-md mx-auto mb-4">
-      {stats.total === 0 
-        ? "No issues reported today. Great job, marshals!" 
-        : `${stats.total} issue(s) found, but none match your current filters.`}
-    </p>
-    {(filterStatus !== 'all' || filterBlock !== 'all' || searchQuery) && (
-      <button
-        onClick={() => {
-          setFilterStatus('all')
-          setFilterBlock('all')
-          setSearchQuery('')
-        }}
-        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Clear All Filters
-      </button>
-    )}
-  </div>
-) : (
+                    <div className="text-center py-12 bg-gray-50">
+                        <AlertTriangle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-700 text-lg">No issues found</p>
+                    </div>
+                ) : (
                     <div className="divide-y">
                         {filteredIssues.map((issue) => (
                             <IssueCard
@@ -432,6 +431,11 @@ export default function AdminDashboardPage() {
                     </div>
                 )}
             </div>
+
+            {/* Marshal Activity Chart */}
+            {marshalActivity.length > 0 && (
+                <MarshalActivityChart data={marshalActivity} />
+            )}
 
             {/* Analytics Section */}
             <AnalyticsSection issues={issues} />

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+
 import { createClient } from '@/lib/supabase/server'
+// ADD after imports (line 2)
+import { updateDailyMarshalCount } from '@/lib/analytics/marshal-counter'
 
 // Runs daily at 2 AM IST via Vercel Cron
 export async function GET(request: NextRequest) {
@@ -11,12 +14,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createClient()
-    
+
     // Calculate cutoff date (48 hours ago)
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000)
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0]
-    
+
     console.log(`🧹 Starting AUTO-CLEANUP for data older than ${cutoffDateStr}...`)
+
 
     // 1. Delete old issues
     const { error: issuesError } = await supabase
@@ -26,6 +30,22 @@ export async function GET(request: NextRequest) {
 
     if (issuesError) throw issuesError
     console.log(`✅ Deleted old issues before ${cutoffDateStr}`)
+
+    const datesToArchive = Array.from(
+      { length: 2 },
+      (_, i) => new Date(Date.now() - (48 + i * 24) * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0]
+    )
+
+    for (const archiveDate of datesToArchive) {
+      try {
+        await updateDailyMarshalCount(archiveDate)
+        console.log(`✅ Archived marshal count for ${archiveDate}`)
+      } catch (err) {
+        console.error(`❌ Failed to archive ${archiveDate}:`, err)
+      }
+    }
 
     // 2. Delete old checklist responses
     const { error: checklistError } = await supabase
@@ -49,24 +69,24 @@ export async function GET(request: NextRequest) {
     const { data: buckets } = await supabase.storage
       .from('facility-images')
       .list('', { limit: 100 })
-    
+
     if (buckets) {
       const oldFolders = buckets
         .filter(folder => folder.name < cutoffDateStr && folder.name.match(/^\d{4}-\d{2}-\d{2}$/))
-      
+
       for (const folder of oldFolders) {
         // List all files in folder
         const { data: files } = await supabase.storage
           .from('facility-images')
           .list(folder.name, { limit: 1000 })
-        
+
         if (files && files.length > 0) {
           // Delete all files in folder
           const paths = files.map(file => `${folder.name}/${file.name}`)
           const { error: deleteError } = await supabase.storage
             .from('facility-images')
             .remove(paths)
-          
+
           if (deleteError) {
             console.error(`❌ Error deleting files in ${folder.name}:`, deleteError)
           } else {
@@ -77,12 +97,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ AUTO-CLEANUP completed successfully!')
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: `Cleanup completed for data before ${cutoffDateStr}`,
       cutoffDate: cutoffDateStr
     })
-    
+
   } catch (error) {
     console.error('❌ AUTO-CLEANUP failed:', error)
     return NextResponse.json(

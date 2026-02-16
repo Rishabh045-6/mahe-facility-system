@@ -42,6 +42,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 40, bottom: 40, left: 40, right: 40 },
+    autoFirstPage: true,
   })
   
   const buffers: Buffer[] = []
@@ -65,7 +66,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   // MAHE Logo placeholder (text-based)
   doc.fontSize(24)
      .fillColor('#ffffff')
-     .font('Helvetica-Bold')
+     .font('Times-Roman')
      .text('MANIPAL ACADEMY OF HIGHER EDUCATION', 297, 25, { align: 'center' })
   
   doc.fontSize(14)
@@ -74,13 +75,13 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   // Report Title
   doc.fontSize(20)
      .fillColor(MAHE_COLORS.text)
-     .font('Helvetica-Bold')
+     .font('Times-Roman')
      .text('DAILY FACILITY INSPECTION REPORT', 297, 100, { align: 'center' })
   
   // Date
   const formattedDate = formatDate(date)
   doc.fontSize(12)
-     .font('Helvetica')
+     .font('Times-Roman')
      .text(`Report Date: ${formattedDate}`, 297, 115, { align: 'center' })
   
   yPos = 140
@@ -90,7 +91,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   // ============================================
   
   doc.fontSize(14)
-     .font('Helvetica-Bold')
+     .font('Times-Roman')
      .text('EXECUTIVE SUMMARY', 40, yPos)
   
   yPos += 25
@@ -105,12 +106,12 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   summaryData.forEach((item, index) => {
     const y = yPos + (index * 20)
     doc.fontSize(10)
-       .font('Helvetica-Bold')
+       .font('Times-Roman')
        .fillColor(MAHE_COLORS.text)
        .text(item.label, 40, y, { width: 250 })
     
     doc.fontSize(10)
-       .font('Helvetica')
+       .font('Times-Roman')
        .fillColor(MAHE_COLORS.primary)
        .text(item.value, 290, y)
   })
@@ -123,7 +124,8 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
   
   if (approvedIssues.length > 0) {
     doc.fontSize(14)
-       .font('Helvetica-Bold')
+       .font('Times-Roman')
+
        .fillColor(MAHE_COLORS.success)
        .text(`APPROVED ISSUES (${approvedIssues.length})`, 40, yPos)
     
@@ -131,7 +133,8 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
     
     // Table headers
     doc.fontSize(9)
-       .font('Helvetica-Bold')
+       .font('Times-Roman')
+
        .fillColor('#ffffff')
        .rect(40, yPos, 515, 20)
        .fillColor(MAHE_COLORS.success)
@@ -164,7 +167,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
       
       // Issue data
       doc.fontSize(8)
-         .font('Helvetica')
+         .font('Times-Roman')
          .fillColor(MAHE_COLORS.text)
          .text(issue.block, 45, y + 5)
          .text(`Floor ${issue.floor}`, 100, y + 5)
@@ -197,7 +200,8 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
     }
     
     doc.fontSize(14)
-       .font('Helvetica-Bold')
+       .font('Times-Roman')
+
        .fillColor(MAHE_COLORS.danger)
        .text(`DENIED ISSUES (${deniedIssues.length})`, 40, yPos)
     
@@ -205,7 +209,8 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
     
     // Table headers
     doc.fontSize(9)
-       .font('Helvetica-Bold')
+       .font('Times-Roman')
+
        .fillColor('#ffffff')
        .rect(40, yPos, 515, 20)
        .fillColor(MAHE_COLORS.danger)
@@ -238,7 +243,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
       
       // Issue data
       doc.fontSize(8)
-         .font('Helvetica')
+         .font('Times-Roman')
          .fillColor(MAHE_COLORS.text)
          .text(issue.block, 45, y + 5)
          .text(`Floor ${issue.floor}`, 100, y + 5)

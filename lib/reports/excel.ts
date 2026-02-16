@@ -1,476 +1,223 @@
-import ExcelJS from 'exceljs'
-import { getImageUrl } from '@/lib/storage/upload'
+import nodemailer from 'nodemailer'
 
-interface Issue {
-  id: string
-  block: string
-  floor: string
-  room_location?: string
-  issue_type: string
-  description: string
-  is_movable: boolean
-  images?: string[]
-  marshal_id: string
-  status: string
-  reported_at: string
-  marshals?: {
-    name: string
-  }
+interface EmailOptions {
+  to: string | string[]
+  subject: string
+  text?: string
+  html?: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer | string
+    contentType?: string
+  }>
 }
 
-interface ExcelData {
-  issues: Issue[]
-  date: string
-}
-
-export async function generateExcel(data: ExcelData, date: string): Promise<Buffer> {
-  const { issues } = data
-  const approvedIssues = issues.filter(i => i.status === 'approved')
-  const deniedIssues = issues.filter(i => i.status === 'denied')
+export class EmailSender {
+  private transporter: nodemailer.Transporter
   
-  // Create new workbook
-  const workbook = new ExcelJS.Workbook()
-  
-  // ============================================
-  // SUMMARY SHEET
-  // ============================================
-  
-  const summarySheet = workbook.addWorksheet('Summary', {
-    properties: { tabColor: { argb: 'FF1E3A8A' } }
-  })
-  
-  // Title
-  summarySheet.mergeCells('A1:F1')
-  summarySheet.getCell('A1').value = 'MAHE FACILITY MANAGEMENT SYSTEM'
-  summarySheet.getCell('A1').font = { size: 16, bold: true, color: { argb: 'FF1E3A8A' } }
-  summarySheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
-  summarySheet.getCell('A1').fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FFF0F5FF' }
-  }
-  summarySheet.getCell('A1').border = {
-    top: { style: 'thin' },
-    left: { style: 'thin' },
-    bottom: { style: 'thin' },
-    right: { style: 'thin' }
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: { rejectUnauthorized: false }
+    })
   }
   
-  // Report Date
-  summarySheet.mergeCells('A2:F2')
-  summarySheet.getCell('A2').value = `Daily Inspection Report - ${formatDate(date)}`
-  summarySheet.getCell('A2').font = { size: 12, bold: true }
-  summarySheet.getCell('A2').alignment = { horizontal: 'center' }
-  summarySheet.getCell('A2').border = {
-    top: { style: 'thin' },
-    left: { style: 'thin' },
-    bottom: { style: 'thin' },
-    right: { style: 'thin' }
-  }
-  
-  // Summary Statistics
-  const summaryData = [
-    ['Metric', 'Value', 'Percentage'],
-    ['Total Issues Reported', issues.length, '100%'],
-    ['Approved Issues', approvedIssues.length, `${Math.round((approvedIssues.length/issues.length)*100) || 0}%`],
-    ['Denied Issues', deniedIssues.length, `${Math.round((deniedIssues.length/issues.length)*100) || 0}%`],
-    ['Issues with Images', issues.filter(i => i.images && i.images.length > 0).length, `${Math.round((issues.filter(i => i.images && i.images.length > 0).length/issues.length)*100) || 0}%`],
-    ['Total Images', issues.reduce((sum, i) => sum + (i.images?.length || 0), 0), ''],
-  ]
-  
-  let row = 4
-  summaryData.forEach((rowData, index) => {
-    const excelRow = summarySheet.getRow(row + index)
-    excelRow.values = rowData
-    
-    // Header row styling
-    if (index === 0) {
-      excelRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-      excelRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF1E3A8A' }
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    try {
+      const mailOptions = {
+        from: `"MAHE Facility Management" <${process.env.SMTP_USER}>`,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html || this.generateHTMLBody(options.subject, options.text || ''),
+        attachments: options.attachments,
       }
-      excelRow.height = 25
-    } else {
-      excelRow.height = 20
-      if (rowData[1] === approvedIssues.length) {
-        excelRow.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFD1FAE5' }
-        }
-      } else if (rowData[1] === deniedIssues.length) {
-        excelRow.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFEE2E2' }
-        }
-      }
-    }
-    
-    // Center align all cells
-    excelRow.eachCell((cell, colNumber) => {
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    })
-  })
-  
-  summarySheet.columns = [
-    { header: 'Metric', width: 25 },
-    { header: 'Value', width: 15 },
-    { header: 'Percentage', width: 15 }
-  ]
-  
-  // ============================================
-  // APPROVED ISSUES SHEET
-  // ============================================
-  
-  if (approvedIssues.length > 0) {
-    const approvedSheet = workbook.addWorksheet('Approved Issues', {
-      properties: { tabColor: { argb: 'FF10B981' } }
-    })
-    
-    const approvedHeaders = [
-      'Issue ID',
-      'Block',
-      'Floor',
-      'Room/Location',
-      'Issue Type',
-      'Description',
-      'Movable Item',
-      'Images',
-      'Marshal ID',
-      'Marshal Name',
-      'Reported At',
-      'Status'
-    ]
-    
-    const approvedHeaderRow = approvedSheet.getRow(1)
-    approvedHeaderRow.values = approvedHeaders
-    approvedHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    approvedHeaderRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF10B981' }
-    }
-    approvedHeaderRow.height = 30
-    
-    approvedHeaderRow.eachCell((cell) => {
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    })
-    
-    approvedIssues.forEach((issue, index) => {
-      const row = approvedSheet.getRow(index + 2)
-      row.values = [
-        issue.id.substring(0, 8),
-        issue.block,
-        issue.floor,
-        issue.room_location || '-',
-        issue.issue_type,
-        issue.description,
-        issue.is_movable ? 'Yes' : 'No',
-        issue.images?.length || 0,
-        issue.marshal_id,
-        issue.marshals?.name || '-',
-        formatDateTime(issue.reported_at),
-        issue.status
-      ]
       
-      row.height = 50
-      row.eachCell((cell, colNumber) => {
-        cell.alignment = { vertical: 'middle', wrapText: true }
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        }
+      await this.transporter.sendMail(mailOptions)
+      console.log('✅ Email sent successfully')
+      return true
+    } catch (error) {
+      console.error('❌ Email send failed:', error)
+      return false
+    }
+  }
+  
+  private generateHTMLBody(subject: string, message: string): string {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>MANIPAL ACADEMY OF HIGHER EDUCATION</h1>
+        <p>FACILITY MANAGEMENT SYSTEM</p>
+      </div>
+      
+      <div class="content">
+        <h2>${subject}</h2>
+        <p>${message.replace(/\n/g, '<br>')}</p>
         
-        // Color coding for movable items
-        if (issue.is_movable && colNumber === 7) {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE0F2FE' }
-          }
-        }
-      })
-    })
-    
-    approvedSheet.columns = [
-      { header: 'Issue ID', width: 12 },
-      { header: 'Block', width: 10 },
-      { header: 'Floor', width: 10 },
-      { header: 'Room/Location', width: 15 },
-      { header: 'Issue Type', width: 20 },
-      { header: 'Description', width: 35 },
-      { header: 'Movable Item', width: 12 },
-      { header: 'Images', width: 10 },
-      { header: 'Marshal ID', width: 12 },
-      { header: 'Marshal Name', width: 20 },
-      { header: 'Reported At', width: 18 },
-      { header: 'Status', width: 10 }
-    ]
-    
-    // Add image links as hyperlinks
-    approvedIssues.forEach((issue, index) => {
-      if (issue.images && issue.images.length > 0) {
-        const cell = approvedSheet.getCell(`H${index + 2}`)
-        cell.value = {
-          text: `${issue.images.length} image(s)`,
-          hyperlink: getImageUrl(issue.images[0]),
-          tooltip: 'Click to view image'
-        }
-        cell.font = { color: { argb: 'FF1E3A8A' }, underline: true }
-      }
-    })
-  }
-  
-  // ============================================
-  // DENIED ISSUES SHEET
-  // ============================================
-  
-  if (deniedIssues.length > 0) {
-    const deniedSheet = workbook.addWorksheet('Denied Issues', {
-      properties: { tabColor: { argb: 'FFEF4444' } }
-    })
-    
-    const deniedHeaders = [
-      'Issue ID',
-      'Block',
-      'Floor',
-      'Room/Location',
-      'Issue Type',
-      'Description',
-      'Movable Item',
-      'Images',
-      'Marshal ID',
-      'Marshal Name',
-      'Reported At',
-      'Status'
-    ]
-    
-    const deniedHeaderRow = deniedSheet.getRow(1)
-    deniedHeaderRow.values = deniedHeaders
-    deniedHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    deniedHeaderRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFEF4444' }
-    }
-    deniedHeaderRow.height = 30
-    
-    deniedHeaderRow.eachCell((cell) => {
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    })
-    
-    deniedIssues.forEach((issue, index) => {
-      const row = deniedSheet.getRow(index + 2)
-      row.values = [
-        issue.id.substring(0, 8),
-        issue.block,
-        issue.floor,
-        issue.room_location || '-',
-        issue.issue_type,
-        issue.description,
-        issue.is_movable ? 'Yes' : 'No',
-        issue.images?.length || 0,
-        issue.marshal_id,
-        issue.marshals?.name || '-',
-        formatDateTime(issue.reported_at),
-        issue.status
-      ]
+        ${this.getSignature()}
+      </div>
       
-      row.height = 50
-      row.eachCell((cell) => {
-        cell.alignment = { vertical: 'middle', wrapText: true }
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        }
-      })
+      <div class="footer">
+        <p>This is an automated message from MAHE Facility Management System</p>
+        <p>© ${new Date().getFullYear()} Manipal Academy of Higher Education. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    `
+  }
+  
+  private getSignature(): string {
+    return `
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+      <p style="font-weight: bold; color: #1e3a8a; margin: 0;">Best regards,</p>
+      <p style="margin: 5px 0 0 0;">MAHE Facility Management Team</p>
+      <p style="margin: 5px 0 0 0; font-size: 14px; color: #6b7280;">
+        Manipal Academy of Higher Education<br>
+        Phone: +91-XXXXXXXXXX<br>
+        Email: facility@mahe.edu
+      </p>
+    </div>
+    `
+  }
+  
+  async sendDailyReport(
+    to: string, 
+    pdfBuffer: Buffer, 
+    excelBuffer: Buffer, 
+    stats: { total: number; approved: number; denied: number; withImages: number }
+  ): Promise<boolean> {
+    const date = new Date().toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     })
     
-    deniedSheet.columns = [
-      { header: 'Issue ID', width: 12 },
-      { header: 'Block', width: 10 },
-      { header: 'Floor', width: 10 },
-      { header: 'Room/Location', width: 15 },
-      { header: 'Issue Type', width: 20 },
-      { header: 'Description', width: 35 },
-      { header: 'Movable Item', width: 12 },
-      { header: 'Images', width: 10 },
-      { header: 'Marshal ID', width: 12 },
-      { header: 'Marshal Name', width: 20 },
-      { header: 'Reported At', width: 18 },
-      { header: 'Status', width: 10 }
-    ]
-  }
-  
-  // ============================================
-  // ALL ISSUES SHEET
-  // ============================================
-  
-  const allSheet = workbook.addWorksheet('All Issues', {
-    properties: { tabColor: { argb: 'FF6B7280' } }
-  })
-  
-  const allHeaders = [
-    'Issue ID',
-    'Block',
-    'Floor',
-    'Room/Location',
-    'Issue Type',
-    'Description',
-    'Movable Item',
-    'Images',
-    'Marshal ID',
-    'Marshal Name',
-    'Reported At',
-    'Status'
-  ]
-  
-  const allHeaderRow = allSheet.getRow(1)
-  allHeaderRow.values = allHeaders
-  allHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-  allHeaderRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF6B7280' }
-  }
-  allHeaderRow.height = 30
-  
-  allHeaderRow.eachCell((cell) => {
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-    cell.border = {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    }
-  })
-  
-  issues.forEach((issue, index) => {
-    const row = allSheet.getRow(index + 2)
-    row.values = [
-      issue.id.substring(0, 8),
-      issue.block,
-      issue.floor,
-      issue.room_location || '-',
-      issue.issue_type,
-      issue.description,
-      issue.is_movable ? 'Yes' : 'No',
-      issue.images?.length || 0,
-      issue.marshal_id,
-      issue.marshals?.name || '-',
-      formatDateTime(issue.reported_at),
-      issue.status
-    ]
+    const subject = `MAHE Daily Facility Report - ${date}`
     
-    row.height = 50
-    row.eachCell((cell, colNumber) => {
-      cell.alignment = { vertical: 'middle', wrapText: true }
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+        .stats { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2563eb; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .stat-item { background: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; }
+        .stat-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+        .stat-value { font-size: 20px; font-weight: bold; color: #1e3a8a; }
+        .stat-value.approved { color: #10b981; }
+        .stat-value.denied { color: #ef4444; }
+        .attachments { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 25px 0; }
+        .attachment-item { display: flex; align-items: center; padding: 10px; background: #ffffff; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb; }
+        .attachment-icon { width: 30px; height: 30px; background: #2563eb; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: 12px; color: white; font-weight: bold; }
+        .attachment-info { flex: 1; }
+        .attachment-name { font-weight: bold; color: #1e3a8a; margin: 0 0 4px 0; }
+        .attachment-size { font-size: 12px; color: #6b7280; margin: 0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>MANIPAL ACADEMY OF HIGHER EDUCATION</h1>
+        <p>FACILITY MANAGEMENT SYSTEM</p>
+      </div>
       
-      // Status-based coloring
-      if (colNumber === 12) { // Status column
-        if (issue.status === 'approved') {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFD1FAE5' }
-          }
-        } else if (issue.status === 'denied') {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFFEE2E2' }
-          }
-        }
-      }
+      <div class="content">
+        <h2>Daily Facility Inspection Report</h2>
+        <p>Dear Director,</p>
+        <p>Please find attached the daily facility inspection report for ${date}.</p>
+        <p>The report contains all issues identified by marshals during their inspections today.</p>
+        
+        <div class="stats">
+          <h3>📊 Today's Summary</h3>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">Total Issues</div>
+              <div class="stat-value">${stats.total}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Approved</div>
+              <div class="stat-value approved">${stats.approved}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Denied</div>
+              <div class="stat-value denied">${stats.denied}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">With Images</div>
+              <div class="stat-value">${stats.withImages}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="attachments">
+          <h3>📎 Attachments</h3>
+          <div class="attachment-item">
+            <div class="attachment-icon">PDF</div>
+            <div class="attachment-info">
+              <p class="attachment-name">MAHE_Daily_Report_${new Date().toISOString().split('T')[0]}.pdf</p>
+              <p class="attachment-size">Comprehensive report with all details</p>
+            </div>
+          </div>
+          <div class="attachment-item">
+            <div class="attachment-icon">XLS</div>
+            <div class="attachment-info">
+              <p class="attachment-name">MAHE_Daily_Report_${new Date().toISOString().split('T')[0]}.xlsx</p>
+              <p class="attachment-size">Excel spreadsheet with filterable data</p>
+            </div>
+          </div>
+        </div>
+        
+        ${this.getSignature()}
+      </div>
+      
+      <div class="footer">
+        <p>This is an automated message from MAHE Facility Management System</p>
+        <p>© ${new Date().getFullYear()} Manipal Academy of Higher Education. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    `
+    
+    return this.sendEmail({
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `MAHE_Daily_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+        {
+          filename: `MAHE_Daily_Report_${new Date().toISOString().split('T')[0]}.xlsx`,
+          content: excelBuffer,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      ],
     })
-  })
-  
-  allSheet.columns = [
-    { header: 'Issue ID', width: 12 },
-    { header: 'Block', width: 10 },
-    { header: 'Floor', width: 10 },
-    { header: 'Room/Location', width: 15 },
-    { header: 'Issue Type', width: 20 },
-    { header: 'Description', width: 35 },
-    { header: 'Movable Item', width: 12 },
-    { header: 'Images', width: 10 },
-    { header: 'Marshal ID', width: 12 },
-    { header: 'Marshal Name', width: 20 },
-    { header: 'Reported At', width: 18 },
-    { header: 'Status', width: 10 }
-  ]
-  
-  // Add image hyperlinks
-  issues.forEach((issue, index) => {
-    if (issue.images && issue.images.length > 0) {
-      const cell = allSheet.getCell(`H${index + 2}`)
-      cell.value = {
-        text: `${issue.images.length} image(s)`,
-        hyperlink: getImageUrl(issue.images[0]),
-        tooltip: 'Click to view image'
-      }
-      cell.font = { color: { argb: 'FF1E3A8A' }, underline: true }
-    }
-  })
-  
-  // ============================================
-  // GENERATE BUFFER
-  // ============================================
-  
-  const buffer = await workbook.xlsx.writeBuffer()
-  return Buffer.from(buffer as ArrayBuffer)
+  }
 }
 
-// Helper functions
-function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-IN', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
-
-function formatDateTime(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleString('en-IN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  })
-}
+export const emailSender = new EmailSender()
