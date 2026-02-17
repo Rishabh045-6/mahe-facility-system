@@ -136,7 +136,7 @@ export default function AdminDashboardPage() {
                 issue.description.toLowerCase().includes(query) ||
                 issue.issue_type.toLowerCase().includes(query) ||
                 issue.marshal_id.toLowerCase().includes(query) ||
-                issue.marshal?.name.toLowerCase().includes(query) ||
+                issue.marshal_name.toLowerCase().includes(query) ||
                 issue.room_location?.toLowerCase().includes(query)
             )
         }

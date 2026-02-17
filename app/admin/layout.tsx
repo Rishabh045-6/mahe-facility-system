@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import MarshalStatsWidget from './dashboard/components/MarshalStatsWidget'
 
 export default async function AdminLayout({
   children,
@@ -7,18 +8,20 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) {
     redirect('/admin-login')
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
+
+            {/* Left: branding */}
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
                 <span className="text-white text-xl font-bold">A</span>
@@ -28,13 +31,18 @@ export default async function AdminLayout({
                 <p className="text-sm text-gray-700">MAHE Facility Management</p>
               </div>
             </div>
-            
+
+            {/* Right: stats widget + user info + sign out */}
             <div className="flex items-center space-x-4">
+
+              {/* ← Marshal Stats Widget lives here */}
+              <MarshalStatsWidget />
+
               <div className="text-right">
                 <p className="text-sm font-medium text-black">{user.email}</p>
                 <p className="text-xs text-gray-500">Administrator</p>
               </div>
-              
+
               <form action="/auth/signout" method="post">
                 <button
                   type="submit"
@@ -47,7 +55,7 @@ export default async function AdminLayout({
           </div>
         </div>
       </header>
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>

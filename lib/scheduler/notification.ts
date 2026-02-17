@@ -35,10 +35,7 @@ export class NotificationScheduler {
       // Get today's issues
       const { data: issues } = await supabase
         .from('issues')
-        .select(`
-          *,
-          marshals (name)
-        `)
+        .select('*')
         .gte('reported_at', `${today}T00:00:00`)
         .lte('reported_at', `${today}T23:59:59`)
       
