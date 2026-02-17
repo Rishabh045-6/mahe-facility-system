@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS issues (
     is_movable BOOLEAN DEFAULT false,
     images TEXT[],
     marshal_id TEXT NOT NULL,  -- Just store the ID, no validation
+    marshal_name TEXT,
     status TEXT DEFAULT 'approved' CHECK (status IN ('approved', 'denied')),
     reported_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     checklist_data JSONB,
@@ -56,10 +57,11 @@ CREATE TABLE IF NOT EXISTS checklist_items (
 -- ============================================
 CREATE TABLE IF NOT EXISTS checklist_responses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    marshal_id TEXT NOT NULL,  -- Just store the ID
+    marshal_id TEXT NOT NULL,
+    marshal_name TEXT,
     block TEXT NOT NULL,
     floor TEXT NOT NULL,
-    checklist_item_id UUID REFERENCES checklist_items(id) ON DELETE CASCADE,
+    checklist_item_id TEXT,
     response BOOLEAN,
     date DATE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -194,3 +196,74 @@ INSERT INTO checklist_items (category, item_text, order_index) VALUES
 ('Maintenance/Snag', 'Daily snag list prepared and sent', 17),
 ('Maintenance/Snag', 'Follow-up on pending complaints', 18),
 ('Maintenance/Snag', 'Electrical and plumbing items checked', 19);
+
+-- ============================================
+-- MARSHAL REGISTRY (Persistent across cleanups)
+-- ============================================
+CREATE TABLE IF NOT EXISTS marshal_registry (
+    marshal_id TEXT PRIMARY KEY,
+    marshal_name TEXT,
+    first_seen DATE NOT NULL DEFAULT CURRENT_DATE,
+    last_seen DATE NOT NULL DEFAULT CURRENT_DATE,
+    total_submissions INTEGER DEFAULT 1
+);
+
+-- ============================================
+-- DAILY MARSHAL COUNTS (For activity chart)
+-- ============================================
+CREATE TABLE IF NOT EXISTS daily_marshal_counts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    date DATE NOT NULL UNIQUE,
+    unique_count INTEGER DEFAULT 0,
+    total_submissions INTEGER DEFAULT 0
+);
+
+-- ============================================
+-- RPC: Upsert marshal into registry
+-- ============================================
+CREATE OR REPLACE FUNCTION upsert_marshal_registry(p_marshal_id TEXT, p_marshal_name TEXT)
+RETURNS VOID AS $$
+BEGIN
+  INSERT INTO marshal_registry (marshal_id, marshal_name, first_seen, last_seen, total_submissions)
+  VALUES (p_marshal_id, p_marshal_name, CURRENT_DATE, CURRENT_DATE, 1)
+  ON CONFLICT (marshal_id) DO UPDATE
+    SET marshal_name = p_marshal_name,
+        last_seen = CURRENT_DATE,
+        total_submissions = marshal_registry.total_submissions + 1;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- RPC: Update daily marshal count
+-- ============================================
+CREATE OR REPLACE FUNCTION update_daily_marshal_count(p_date TEXT)
+RETURNS VOID AS $$
+DECLARE
+  v_unique INTEGER;
+  v_total INTEGER;
+BEGIN
+  SELECT COUNT(DISTINCT marshal_id), COUNT(*)
+  INTO v_unique, v_total
+  FROM issues
+  WHERE DATE(reported_at) = p_date::DATE;
+
+  INSERT INTO daily_marshal_counts (date, unique_count, total_submissions)
+  VALUES (p_date::DATE, v_unique, v_total)
+  ON CONFLICT (date) DO UPDATE
+    SET unique_count = v_unique,
+        total_submissions = v_total;
+END;
+$$ LANGUAGE plpgsql;
+
+ALTER TABLE marshal_registry ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_marshal_counts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all operations on marshal_registry"
+    ON marshal_registry FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+CREATE POLICY "Allow all operations on daily_marshal_counts"
+    ON daily_marshal_counts FOR ALL
+    USING (true)
+    WITH CHECK (true);

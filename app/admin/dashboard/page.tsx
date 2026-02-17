@@ -1,17 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import MarshalActivityChart from './components/MarshalActivityChart'
 
 import {
     RefreshCw,
     Download,
-    Send,
     AlertTriangle,
     CheckCircle2,
     XCircle,
-    Clock,
     Mail,
     FileText,
     Users
@@ -25,7 +22,7 @@ import AnalyticsSection from './components/AnalyticsSection'
 import React from 'react'
 
 export default function AdminDashboardPage() {
-    const router = useRouter()
+
     const [loading, setLoading] = useState(true)
     const [issues, setIssues] = useState<any[]>([])
     const [filteredIssues, setFilteredIssues] = useState<any[]>([])
@@ -50,10 +47,10 @@ export default function AdminDashboardPage() {
     })
 
     useEffect(() => {
-        fetchDashboardData()
+        fetchDashboardData(true)
 
         // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchDashboardData, 30000)
+        const interval = setInterval(() => fetchDashboardData(false), 30000)
         return () => clearInterval(interval)
     }, [])
 
@@ -61,9 +58,9 @@ export default function AdminDashboardPage() {
         applyFilters()
     }, [issues, filterStatus, filterBlock, searchQuery])
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (showSpinner = false) => {
         try {
-            setLoading(true)
+            if (showSpinner) setLoading(true)
 
             const today = getTodayDateString()
 
@@ -133,10 +130,10 @@ export default function AdminDashboardPage() {
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase()
             filtered = filtered.filter(issue =>
-                issue.description.toLowerCase().includes(query) ||
-                issue.issue_type.toLowerCase().includes(query) ||
-                issue.marshal_id.toLowerCase().includes(query) ||
-                issue.marshal_name.toLowerCase().includes(query) ||
+                issue.description?.toLowerCase().includes(query) ||
+                issue.issue_type?.toLowerCase().includes(query) ||
+                issue.marshal_id?.toLowerCase().includes(query) ||
+                issue.marshal_name?.toLowerCase().includes(query) ||
                 issue.room_location?.toLowerCase().includes(query)
             )
         }
@@ -173,52 +170,66 @@ export default function AdminDashboardPage() {
         try {
             setEmailLoading(true)
 
-            const response = await fetch('/api/reports', {
+            const response = await fetch('/api/reports/download', {
                 method: 'POST',
             })
 
             const contentType = response.headers.get('content-type')
             if (!contentType?.includes('application/json')) {
-                throw new Error('Invalid server response')
+                const text = await response.text()
+                console.error('Non-JSON response from /api/reports/download:', text)
+                toast.error(`Server error: ${response.status} - Check console for details`)
+                return
             }
 
             const result = await response.json()
 
             if (!response.ok) {
-                // ✅ Show EXACT error message from server
-                const errorMsg = result.message || result.error || 'Failed to generate report'
-                toast.error(errorMsg)
-                console.error('Server error:', errorMsg)
-                setEmailLoading(false)
+                const errorDetail = result.message || result.error || 'Failed to generate report'
+                console.error('Report error:', errorDetail)
+                toast.error(errorDetail)
                 return
             }
 
-            // ✅ ONLY DOWNLOAD EXCEL (skip PDF)
-            if (result.data?.excel) {
-                try {
-                    const excelBlob = Buffer.from(result.data.excel, 'base64')
-                    const excelUrl = window.URL.createObjectURL(
-                        new Blob([excelBlob], {
-                            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                        })
-                    )
-                    const excelLink = document.createElement('a')
-                    excelLink.href = excelUrl
-                    excelLink.download = `${result.data.filename}.xlsx`
-                    excelLink.click()
-                    window.URL.revokeObjectURL(excelUrl)
-                    toast.success('✅ Excel report downloaded successfully!')
-                } catch (err) {
-                    console.error('Download error:', err)
-                    toast.error('Failed to download report')
-                }
-            } else {
-                toast.error('No report data received')
+            // Download PDF
+            try {
+                const pdfBinary = atob(result.pdf)
+                const pdfBytes = new Uint8Array(pdfBinary.length)
+                for (let i = 0; i < pdfBinary.length; i++) pdfBytes[i] = pdfBinary.charCodeAt(i)
+                const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
+                const pdfUrl = URL.createObjectURL(pdfBlob)
+                const pdfLink = document.createElement('a')
+                pdfLink.href = pdfUrl
+                pdfLink.download = `${result.filename}.pdf`
+                pdfLink.click()
+                URL.revokeObjectURL(pdfUrl)
+            } catch (e) {
+                console.error('PDF download error:', e)
+                toast.error('Failed to download PDF')
             }
+
+            // Download Excel
+            try {
+                const excelBinary = atob(result.excel)
+                const excelBytes = new Uint8Array(excelBinary.length)
+                for (let i = 0; i < excelBinary.length; i++) excelBytes[i] = excelBinary.charCodeAt(i)
+                const excelBlob = new Blob([excelBytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+                const excelUrl = URL.createObjectURL(excelBlob)
+                const excelLink = document.createElement('a')
+                excelLink.href = excelUrl
+                excelLink.download = `${result.filename}.xlsx`
+                excelLink.click()
+                URL.revokeObjectURL(excelUrl)
+            } catch (e) {
+                console.error('Excel download error:', e)
+                toast.error('Failed to download Excel')
+            }
+
+            toast.success('✅ Reports downloaded successfully!')
 
         } catch (error: any) {
             console.error('Report generation failed:', error)
-            toast.error(error.message || 'Report generation failed. Check server logs.')
+            toast.error(error.message || 'Report generation failed.')
         } finally {
             setEmailLoading(false)
             setShowEmailModal(false)
@@ -240,13 +251,16 @@ export default function AdminDashboardPage() {
             const result = await response.json()
 
             if (!response.ok) {
-                // ✅ Handle "no issues" case gracefully
                 if (result.message?.includes('No issues')) {
                     toast.error('No issues reported today. Cannot send report.')
                     setEmailLoading(false)
                     return
                 }
-                throw new Error(result.error || 'Failed to send email')
+                const errorDetail = result.message || result.error || 'Failed to send email'
+                console.error('Email API error:', errorDetail)
+                toast.error(errorDetail)
+                setEmailLoading(false)
+                return
             }
 
             toast.success('Email sent successfully!')
@@ -310,8 +324,8 @@ export default function AdminDashboardPage() {
                             <p className="text-sm text-gray-700">Active Marshals Today</p>
                             <p className="text-3xl font-bold text-orange-600 mt-1">{uniqueMarshalsCount}</p>
                             <p className="text-sm text-orange-600 mt-1">
-                                {uniqueMarshalsCount} of {Math.ceil(floorCoverage.length / 6)} floors covered
-                            </p>
+                {floorCoverage.length} floors covered today
+            </p>
                         </div>
                         <Users className="w-12 h-12 text-orange-100" />
                     </div>
@@ -335,7 +349,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-3">
                     <button
-                        onClick={fetchDashboardData}
+                        onClick={() => fetchDashboardData(true)}
                         className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     >
                         <RefreshCw className="w-4 h-4 mr-2" />

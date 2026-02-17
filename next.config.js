@@ -48,6 +48,21 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        stream: false,
+        zlib: false,
+      }
+    }
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'pdfkit']
+    }
+    return config
+  },
 }
 
 module.exports = withPWA(nextConfig)

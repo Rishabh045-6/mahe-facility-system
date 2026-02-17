@@ -5,14 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const {
-      block,
-      floor,
-      issues,
-      checklistResponses,
-      marshalId,
-      marshalName,
-    } = body
+    const { block, floor, issues, checklist_responses: checklistResponses, marshal_id: marshalId, marshal_name: marshalName } = body
 
     // Basic validation
     if (!block || !floor || !marshalId || !marshalName) {
@@ -22,7 +15,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!issues || !Array.isArray(issues) || issues.length === 0) {
+    const hasIssues = body.has_issues ?? body.hasIssues ?? true
+    if (hasIssues && (!issues || !Array.isArray(issues) || issues.length === 0)) {
       return NextResponse.json(
         { error: 'At least one issue is required' },
         { status: 400 }
@@ -39,7 +33,7 @@ export async function POST(request: NextRequest) {
     })
 
     // ─── 2. Insert issues ────────────────────────────────────────────────────
-    const issueRecords = issues.map((issue: any) => ({
+    const issueRecords = (hasIssues && issues) ? issues.map((issue: any) => ({
       block,
       floor,
       room_location: issue.room_location || null,
@@ -50,12 +44,19 @@ export async function POST(request: NextRequest) {
       marshal_id:    marshalId,
       marshal_name:  marshalName,
       status:        'approved',
-    }))
+    })) : []
 
-    const { data: insertedIssues, error: issuesError } = await supabase
-      .from('issues')
-      .insert(issueRecords)
-      .select()
+    let insertedIssues: any[] = []
+    let issuesError: any = null
+
+    if (issueRecords.length > 0) {
+      const { data, error } = await supabase
+        .from('issues')
+        .insert(issueRecords)
+        .select()
+      insertedIssues = data || []
+      issuesError = error
+    }
 
     if (issuesError) {
       console.error('Issues insert error:', issuesError)

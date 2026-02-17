@@ -157,9 +157,22 @@ export default function MarshalReportPage() {
 
         try {
             // Prepare submission data matching new API schema
+           // Upload images first if any
+            let uploadedImagePaths: string[] = []
+            if (hasIssues && images.length > 0) {
+                try {
+                    const { uploadImages } = await import('@/lib/storage/upload')
+                    const tempIssueId = `temp-${Date.now()}`
+                    uploadedImagePaths = await uploadImages(images, block, tempIssueId)
+                } catch (uploadError) {
+                    console.error('Image upload failed:', uploadError)
+                    toast.error('Image upload failed. Submitting without images.')
+                }
+            }
+
             const submissionData = {
                 marshal_id: marshalId,
-                marshal_name: marshalName, // ADD THIS LINE
+                marshal_name: marshalName,
                 block,
                 floor,
                 checklist_responses: Object.entries(checklistResponses).map(([itemId, response]) => ({
@@ -167,11 +180,12 @@ export default function MarshalReportPage() {
                     value: response,
                 })),
                 has_issues: hasIssues || false,
-                issues: hasIssues && issues ? issues.map(issue => ({
+                issues: hasIssues && issues ? issues.map((issue, index) => ({
                     issue_type: issue.issue_type,
                     description: issue.description,
                     is_movable: issue.is_movable,
-                    room_location: issue.room_location || undefined
+                    room_location: issue.room_location || undefined,
+                    images: index === 0 ? uploadedImagePaths : [],
                 })) : undefined,
                 submitted_at: new Date().toISOString(),
             }
@@ -221,6 +235,7 @@ export default function MarshalReportPage() {
             if (!navigator.onLine) {
                 const queueId = offlineQueue?.addToQueue('issue', {
                     marshal_id: marshalId,
+                    marshal_name: marshalName,
                     block,
                     floor,
                     checklist_responses: Object.entries(checklistResponses).map(([itemId, response]) => ({

@@ -22,10 +22,7 @@ export default function DirectorReportsPage() {
       // Fetch issues from the selected date
       const { data: issues, error } = await supabase
         .from('issues')
-        .select(`
-          *,
-          marshals (name)
-        `)
+        .select('*')
         .gte('reported_at', `${selectedDate}T00:00:00`)
         .lte('reported_at', `${selectedDate}T23:59:59`)
         .order('reported_at', { ascending: false })
@@ -44,7 +41,7 @@ export default function DirectorReportsPage() {
 
   const handleDownloadPDF = async () => {
     try {
-      const response = await fetch('/api/reports', {
+      const response = await fetch('/api/reports/email', {
         method: 'POST',
       })
       
@@ -72,7 +69,7 @@ export default function DirectorReportsPage() {
 
   const handleDownloadExcel = async () => {
     try {
-      const response = await fetch('/api/reports', {
+      const response = await fetch('/api/reports/email', {
         method: 'POST',
       })
       

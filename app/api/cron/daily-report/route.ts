@@ -18,11 +18,8 @@ export async function GET(request: NextRequest) {
     
     // Get today's issues
     const { data: issues } = await supabase
-      .from('issues')
-      .select(`
-        *,
-        marshals (name)
-      `)
+        .from('issues')
+        .select('*')
       .gte('reported_at', `${today}T00:00:00`)
       .lte('reported_at', `${today}T23:59:59`)
     

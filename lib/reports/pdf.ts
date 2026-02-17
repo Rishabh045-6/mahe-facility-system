@@ -247,12 +247,17 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
       doc.fontSize(8)
          .font('Helvetica')
          .fillColor('#9ca3af')
-         .text('MAHE Facility Management System', 40, 818, { width: 200 })
-         .text(
-           `Generated: ${new Date().toLocaleString('en-IN')}`,
-           40, 818, { align: 'center', width: 515 }
-         )
-         .text(`Page ${i + 1} of ${pageCount}`, 40, 818, { align: 'right', width: 515 })
+         .text('MAHE Facility Management System', 40, 818, { width: 200, align: 'left' })
+
+      doc.text(
+         `Generated: ${new Date().toLocaleString('en-IN')}`,
+         190, 818, { width: 215, align: 'center' }
+      )
+
+      doc.text(
+         `Page ${i + 1} of ${pageCount}`,
+         405, 818, { width: 150, align: 'right' }
+      )
     }
 
     // Finalize — triggers 'end' event which resolves the Promise
