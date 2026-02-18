@@ -70,31 +70,47 @@ export async function GET(request: NextRequest) {
       .from('facility-images')
       .list('', { limit: 100 })
 
-    if (buckets) {
-      const oldFolders = buckets
-        .filter(folder => folder.name < cutoffDateStr && folder.name.match(/^\d{4}-\d{2}-\d{2}$/))
+   if (buckets) {
+  const oldFolders = buckets
+    .filter(folder => folder.name < cutoffDateStr && folder.name.match(/^\d{4}-\d{2}-\d{2}$/))
 
-      for (const folder of oldFolders) {
-        // List all files in folder
+  for (const dateFolder of oldFolders) {
+    // Level 1: date folders → list blocks
+    const { data: blockFolders } = await supabase.storage
+      .from('facility-images')
+      .list(dateFolder.name, { limit: 100 })
+
+    for (const blockFolder of blockFolders || []) {
+      // Level 2: block folders → list issue IDs
+      const { data: issueFolders } = await supabase.storage
+        .from('facility-images')
+        .list(`${dateFolder.name}/${blockFolder.name}`, { limit: 1000 })
+
+      for (const issueFolder of issueFolders || []) {
+        // Level 3: issue folders → list actual image files
         const { data: files } = await supabase.storage
           .from('facility-images')
-          .list(folder.name, { limit: 1000 })
+          .list(`${dateFolder.name}/${blockFolder.name}/${issueFolder.name}`, { limit: 1000 })
 
         if (files && files.length > 0) {
-          // Delete all files in folder
-          const paths = files.map(file => `${folder.name}/${file.name}`)
+          const paths = files.map(f =>
+            `${dateFolder.name}/${blockFolder.name}/${issueFolder.name}/${f.name}`
+          )
+
           const { error: deleteError } = await supabase.storage
             .from('facility-images')
             .remove(paths)
 
           if (deleteError) {
-            console.error(`❌ Error deleting files in ${folder.name}:`, deleteError)
+            console.error(`❌ Error deleting files:`, deleteError)
           } else {
-            console.log(`✅ Deleted ${files.length} images from ${folder.name}`)
+            console.log(`✅ Deleted ${files.length} images from ${dateFolder.name}/${blockFolder.name}/${issueFolder.name}`)
           }
         }
       }
     }
+  }
+}
 
     console.log('✅ AUTO-CLEANUP completed successfully!')
     return NextResponse.json({

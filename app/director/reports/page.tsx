@@ -40,60 +40,60 @@ export default function DirectorReportsPage() {
   }
 
   const handleDownloadPDF = async () => {
-    try {
-      const response = await fetch('/api/reports/email', {
-        method: 'POST',
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to generate report')
-      }
-      
-      // Download PDF
-      const pdfBlob = Buffer.from(result.data.pdf, 'base64')
-      const pdfUrl = window.URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' }))
-      const pdfLink = document.createElement('a')
-      pdfLink.href = pdfUrl
-      pdfLink.download = `${result.data.filename}.pdf`
-      pdfLink.click()
-      
-      toast.success('PDF downloaded successfully!')
-      
-    } catch (error: any) {
-      console.error('Error downloading PDF:', error)
-      toast.error(error.message || 'Failed to download PDF')
+  try {
+    const response = await fetch('/api/reports/download', {
+      method: 'POST',
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || result.error || 'Failed to generate report')
     }
+
+    const byteArray = Uint8Array.from(atob(result.pdf), c => c.charCodeAt(0))
+    const pdfUrl = window.URL.createObjectURL(new Blob([byteArray], { type: 'application/pdf' }))
+    const pdfLink = document.createElement('a')
+    pdfLink.href = pdfUrl
+    pdfLink.download = `${result.filename}.pdf`
+    pdfLink.click()
+    window.URL.revokeObjectURL(pdfUrl)
+
+    toast.success('PDF downloaded successfully!')
+
+  } catch (error: any) {
+    console.error('Error downloading PDF:', error)
+    toast.error(error.message || 'Failed to download PDF')
   }
+}
 
   const handleDownloadExcel = async () => {
-    try {
-      const response = await fetch('/api/reports/email', {
-        method: 'POST',
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to generate report')
-      }
-      
-      // Download Excel
-      const excelBlob = Buffer.from(result.data.excel, 'base64')
-      const excelUrl = window.URL.createObjectURL(new Blob([excelBlob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-      const excelLink = document.createElement('a')
-      excelLink.href = excelUrl
-      excelLink.download = `${result.data.filename}.xlsx`
-      excelLink.click()
-      
-      toast.success('Excel downloaded successfully!')
-      
-    } catch (error: any) {
-      console.error('Error downloading Excel:', error)
-      toast.error(error.message || 'Failed to download Excel')
+  try {
+    const response = await fetch('/api/reports/download', {
+      method: 'POST',
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.message || result.error || 'Failed to generate report')
     }
+
+    const byteArray = Uint8Array.from(atob(result.excel), c => c.charCodeAt(0))
+    const excelUrl = window.URL.createObjectURL(new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    const excelLink = document.createElement('a')
+    excelLink.href = excelUrl
+    excelLink.download = `${result.filename}.xlsx`
+    excelLink.click()
+    window.URL.revokeObjectURL(excelUrl)
+
+    toast.success('Excel downloaded successfully!')
+
+  } catch (error: any) {
+    console.error('Error downloading Excel:', error)
+    toast.error(error.message || 'Failed to download Excel')
   }
+}
 
   if (loading) {
     return (

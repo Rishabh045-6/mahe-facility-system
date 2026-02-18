@@ -185,7 +185,7 @@ export default function MarshalReportPage() {
                     description: issue.description,
                     is_movable: issue.is_movable,
                     room_location: issue.room_location || undefined,
-                    images: index === 0 ? uploadedImagePaths : [],
+                    images: uploadedImagePaths,
                 })) : undefined,
                 submitted_at: new Date().toISOString(),
             }
@@ -238,10 +238,7 @@ export default function MarshalReportPage() {
                     marshal_name: marshalName,
                     block,
                     floor,
-                    checklist_responses: Object.entries(checklistResponses).map(([itemId, response]) => ({
-                        item_id: itemId,
-                        value: response,
-                    })),
+                    checklist_responses: checklistResponses,
                     has_issues: hasIssues || false,
                     issues: hasIssues && issues ? issues.map(issue => ({
                         issue_type: issue.issue_type,

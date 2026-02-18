@@ -107,9 +107,12 @@ export class NotificationScheduler {
   public getNextRunDate(): Date | null {
   if (!this.cronJob) return null
 
-  const next = this.cronJob.nextDates(1)
-
-  return next.length > 0 ? next[0].toJSDate() : null
+  try {
+    const next = this.cronJob.nextDate()
+    return next ? next.toJSDate() : null
+  } catch {
+    return null
+  }
 }
 
 }
