@@ -25,7 +25,7 @@ export const isWithinGracePeriod = (): boolean => {
 
 // Check if form should be locked
 export const shouldLockForm = (): boolean => {
-  return !isBeforeDeadline() && !isWithinGracePeriod()
+  return false//!isBeforeDeadline() && !isWithinGracePeriod()
 }
 
 // Get time remaining until deadline

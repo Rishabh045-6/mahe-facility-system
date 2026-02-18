@@ -164,10 +164,10 @@ export default function MarshalReportPage() {
                     const { uploadImages } = await import('@/lib/storage/upload')
                     const tempIssueId = `temp-${Date.now()}`
                     uploadedImagePaths = await uploadImages(images, block, tempIssueId)
-                } catch (uploadError) {
-                    console.error('Image upload failed:', uploadError)
-                    toast.error('Image upload failed. Submitting without images.')
-                }
+                } catch (uploadError: any) {
+    console.error('Image upload failed:', uploadError)
+    toast.error('Upload error: ' + (uploadError?.message || JSON.stringify(uploadError)))
+}
             }
 
             const submissionData = {
