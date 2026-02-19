@@ -1,8 +1,10 @@
-// NEW FILE: app/admin/dashboard/components/MarshalActivityChart.tsx
 'use client'
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Users } from 'lucide-react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
+} from 'recharts'
+import { Users, TrendingUp } from 'lucide-react'
 
 interface MarshalActivityData {
   date: string
@@ -15,82 +17,130 @@ interface MarshalActivityChartProps {
 }
 
 export default function MarshalActivityChart({ data }: MarshalActivityChartProps) {
-  // Format dates for display (UTC → IST friendly)
   const chartData = data.map(item => ({
     ...item,
     displayDate: new Date(item.date).toLocaleDateString('en-IN', {
-      month: 'short',
-      day: 'numeric'
-    })
+      month: 'short', day: 'numeric',
+    }),
   }))
 
+  const avgMarshals = data.length
+    ? Math.round(data.reduce((sum, d) => sum + d.unique_count, 0) / data.length)
+    : 0
+  const peakMarshals = data.length ? Math.max(...data.map(d => d.unique_count)) : 0
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center mb-4">
-        <Users className="w-6 h-6 text-orange-500 mr-2" />
-        <h3 className="text-lg font-semibold text-black">Daily Marshal Activity</h3>
+    <div style={{ padding: '24px 28px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+        <Users size={18} color="#B4651E" />
+        <h3 style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: '1.1rem', fontWeight: '600',
+          color: '#1a1208', margin: 0,
+        }}>
+          Daily Marshal Activity
+        </h3>
       </div>
-      
-      <div className="h-80">
+
+      {/* Chart */}
+      <div style={{ height: '280px', marginBottom: '20px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="displayDate" 
-              angle={-45} 
-              textAnchor="end" 
-              height={70}
-              tick={{ fontSize: 12 }}
+          <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(180,101,30,0.08)" />
+            <XAxis
+              dataKey="displayDate"
+              angle={-35}
+              textAnchor="end"
+              height={60}
+              tick={{ fontSize: 11, fill: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}
+              axisLine={{ stroke: 'rgba(180,101,30,0.15)' }}
+              tickLine={false}
             />
-            <YAxis 
-              label={{ value: 'Unique Marshals', angle: -90, position: 'insideLeft' }}
-              tick={{ fontSize: 12 }}
+            <YAxis
+              tick={{ fontSize: 11, fill: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}
+              axisLine={false}
+              tickLine={false}
             />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'white', 
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'rgba(255,252,247,0.98)',
+                border: '1px solid rgba(180,101,30,0.2)',
+                borderRadius: '10px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.82rem',
               }}
-              labelStyle={{ fontWeight: 'bold' }}
+              labelStyle={{ fontWeight: '700', color: '#1a1208', marginBottom: '4px' }}
               formatter={(value, name) => [
                 value ?? 0,
-                name === 'unique_count' ? 'Active Marshals' : 'Total Submissions'
+                name === 'unique_count' ? 'Active Marshals' : 'Total Submissions',
               ]}
             />
-            <Line 
-              type="monotone" 
-              dataKey="unique_count" 
-              stroke="#f97316" 
-              strokeWidth={3}
-              dot={{ fill: '#f97316', strokeWidth: 2 }}
-              name="Active Marshals"
+            <Line
+              type="monotone"
+              dataKey="unique_count"
+              stroke="#B4651E"
+              strokeWidth={2.5}
+              dot={{ fill: '#B4651E', strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, fill: '#B4651E' }}
+              name="unique_count"
             />
-            <Line 
-              type="monotone" 
-              dataKey="total_submissions" 
-              stroke="#9ca3af" 
-              strokeWidth={2}
+            <Line
+              type="monotone"
+              dataKey="total_submissions"
+              stroke="rgba(180,101,30,0.25)"
+              strokeWidth={1.5}
               strokeDasharray="5 5"
               dot={false}
-              name="Total Submissions"
+              name="total_submissions"
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
-      
-      <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-        <div className="bg-orange-50 p-3 rounded-lg">
-          <p className="text-sm text-orange-700 font-medium">Avg. Daily Marshals</p>
-          <p className="text-2xl font-bold text-orange-600 mt-1">
-            {data.length ? Math.round(data.reduce((sum, d) => sum + d.unique_count, 0) / data.length) : 0}
+
+      {/* Summary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{
+          backgroundColor: '#fdf6ef',
+          border: '1px solid rgba(180,101,30,0.12)',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          textAlign: 'center',
+        }}>
+          <p style={{
+            fontSize: '0.72rem', fontWeight: '600', color: '#7a6a55',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            margin: '0 0 6px', fontFamily: "'DM Sans', sans-serif",
+          }}>
+            Avg. Daily Marshals
+          </p>
+          <p style={{
+            fontSize: '1.75rem', fontWeight: '800', color: '#B4651E',
+            margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
+          }}>
+            {avgMarshals}
           </p>
         </div>
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <p className="text-sm text-blue-700 font-medium">Peak Activity</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">
-            {data.length ? Math.max(...data.map(d => d.unique_count)) : 0}
+        <div style={{
+          backgroundColor: '#fdf6ef',
+          border: '1px solid rgba(180,101,30,0.12)',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          textAlign: 'center',
+        }}>
+          <p style={{
+            fontSize: '0.72rem', fontWeight: '600', color: '#7a6a55',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            margin: '0 0 6px', fontFamily: "'DM Sans', sans-serif",
+          }}>
+            Peak Activity
+          </p>
+          <p style={{
+            fontSize: '1.75rem', fontWeight: '800', color: '#1e2d3d',
+            margin: 0, fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
+          }}>
+            {peakMarshals}
           </p>
         </div>
       </div>

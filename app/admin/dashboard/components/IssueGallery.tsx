@@ -11,89 +11,162 @@ interface IssueGalleryProps {
 export default function IssueGallery({ images }: IssueGalleryProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  
-  const openLightbox = (index: number) => {
-    setCurrentImageIndex(index)
-    setLightboxOpen(true)
-  }
-  
-  const closeLightbox = () => {
-    setLightboxOpen(false)
-  }
-  
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % images.length)
-  }
-  
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
-  
+
+  const openLightbox = (index: number) => { setCurrentImageIndex(index); setLightboxOpen(true) }
+  const closeLightbox = () => setLightboxOpen(false)
+  const nextImage = () => setCurrentImageIndex(prev => (prev + 1) % images.length)
+  const prevImage = () => setCurrentImageIndex(prev => (prev - 1 + images.length) % images.length)
+
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      {/* Thumbnail grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+        gap: '10px',
+      }}>
         {images.map((imagePath, index) => (
           <div
             key={index}
-            className="aspect-square rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => openLightbox(index)}
+            style={{
+              aspectRatio: '1',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              border: '1.5px solid rgba(180,101,30,0.15)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#B4651E'
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(180,101,30,0.2)'
+              e.currentTarget.style.transform = 'scale(1.03)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(180,101,30,0.15)'
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
           >
             <img
               src={getImageUrl(imagePath)}
               alt={`Issue image ${index + 1}`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-image.png'
-              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={(e) => { e.currentTarget.src = '/placeholder-image.png' }}
             />
           </div>
         ))}
       </div>
-      
-      {/* Lightbox Modal */}
+
+      {/* Lightbox */}
       {lightboxOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+        <div
           onClick={closeLightbox}
+          style={{
+            position: 'fixed', inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.88)',
+            zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+            backdropFilter: 'blur(6px)',
+          }}
         >
-          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'relative', maxWidth: '900px', width: '100%' }}
+          >
+            {/* Close */}
             <button
               onClick={closeLightbox}
-              className="absolute top-4 right-4 p-2 bg-white rounded-full text-gray-600 hover:text-gray-800 z-10"
+              style={{
+                position: 'absolute', top: '-48px', right: 0,
+                width: '36px', height: '36px', borderRadius: '50%',
+                backgroundColor: 'rgba(255,252,247,0.15)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                backdropFilter: 'blur(4px)',
+                transition: 'background-color 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,252,247,0.15)'}
             >
-              <X className="w-6 h-6" />
+              <X size={18} />
             </button>
-            
-            <div className="relative">
-              <img
-                src={getImageUrl(images[currentImageIndex])}
-                alt={`Image ${currentImageIndex + 1}`}
-                className="max-h-[80vh] w-full object-contain"
-              />
-              
-              {images.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white bg-opacity-80 rounded-full text-gray-600 hover:text-gray-800"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white bg-opacity-80 rounded-full text-gray-600 hover:text-gray-800"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </>
-              )}
-            </div>
-            
-            <div className="mt-4 text-center text-white">
-              <p className="text-lg font-semibold">
-                Image {currentImageIndex + 1} of {images.length}
-              </p>
+
+            {/* Image */}
+            <img
+              src={getImageUrl(images[currentImageIndex])}
+              alt={`Image ${currentImageIndex + 1}`}
+              style={{
+                maxHeight: '80vh', width: '100%',
+                objectFit: 'contain',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            />
+
+            {/* Prev / Next */}
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  style={{
+                    position: 'absolute', left: '-52px', top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    backgroundColor: 'rgba(255,252,247,0.15)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,252,247,0.15)'}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                <button
+                  onClick={nextImage}
+                  style={{
+                    position: 'absolute', right: '-52px', top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    backgroundColor: 'rgba(255,252,247,0.15)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,252,247,0.15)'}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
+
+            {/* Counter */}
+            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+              <span style={{
+                display: 'inline-block',
+                backgroundColor: 'rgba(255,252,247,0.12)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '20px',
+                padding: '4px 14px',
+                fontSize: '0.82rem',
+                fontWeight: '600',
+                color: 'rgba(255,255,255,0.85)',
+                fontFamily: "'DM Sans', sans-serif",
+                backdropFilter: 'blur(4px)',
+              }}>
+                {currentImageIndex + 1} / {images.length}
+              </span>
             </div>
           </div>
         </div>

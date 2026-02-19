@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Layers } from 'lucide-react'
+import { Building2, Layers, ChevronDown } from 'lucide-react'
 import { BLOCKS, FLOOR_CONFIG } from '@/lib/utils/constants'
 
 interface BlockFloorSelectorProps {
@@ -21,98 +21,200 @@ export default function BlockFloorSelector({
 }: BlockFloorSelectorProps) {
   const [showBlockModal, setShowBlockModal] = useState(false)
   const [showFloorModal, setShowFloorModal] = useState(false)
-  
+
   const availableFloors = block ? FLOOR_CONFIG[block as keyof typeof FLOOR_CONFIG] : []
-  
+
+  const selectorButton = (
+    value: string,
+    placeholder: string,
+    onClick: () => void,
+    isDisabled: boolean,
+    isSelected: boolean,
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isDisabled}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        padding: '12px 16px',
+        border: isSelected
+          ? '1.5px solid #B4651E'
+          : '1.5px solid rgba(180, 101, 30, 0.2)',
+        borderRadius: '10px',
+        backgroundColor: isSelected ? '#fdf6ef' : '#fffcf7',
+        color: isSelected ? '#B4651E' : '#7a6a55',
+        fontSize: '0.95rem',
+        fontWeight: isSelected ? '600' : '400',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        opacity: isDisabled ? 0.5 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        transition: 'all 0.15s',
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      <span>{value || placeholder}</span>
+      <ChevronDown size={16} color={isSelected ? '#B4651E' : '#c4b5a0'} />
+    </button>
+  )
+
+  const modalOverlay: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    padding: '24px',
+    backdropFilter: 'blur(4px)',
+  }
+
+  const modalBox: React.CSSProperties = {
+    backgroundColor: 'rgba(255, 252, 247, 0.98)',
+    border: '1px solid rgba(180, 101, 30, 0.15)',
+    borderRadius: '18px',
+    width: '100%',
+    maxWidth: '380px',
+    maxHeight: '80vh',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-black mb-4">
+    <div>
+      <h3 style={{
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: '1.1rem',
+        fontWeight: '600',
+        color: '#1a1208',
+        margin: '0 0 20px',
+      }}>
         Location Selection
       </h3>
-      
-      <div className="space-y-4">
-        {/* Block Selection */}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Block */}
         <div>
-          <label className="text-sm font-medium text-black mb-2 flex items-center">
-            <Building2 className="w-4 h-4 mr-2" />
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.8rem',
+            fontWeight: '600',
+            color: '#7a6a55',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            marginBottom: '8px',
+          }}>
+            <Building2 size={13} color="#B4651E" />
             Block
           </label>
-          <button
-            type="button"
-            onClick={() => setShowBlockModal(true)}
-            disabled={disabled}
-            className={`w-full text-left px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-              disabled
-                ? 'bg-gray-100 cursor-not-allowed'
-                : block
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                : 'border-gray-300 hover:border-gray-400'
-            }`}
-          >
-            {block || 'Select Block'}
-          </button>
+          {selectorButton(block, 'Select Block', () => setShowBlockModal(true), disabled, !!block)}
         </div>
-        
-        {/* Floor Selection */}
+
+        {/* Floor */}
         <div>
-          <label className="text-sm font-medium text-black mb-2 flex items-center">
-            <Layers className="w-4 h-4 mr-2" />
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.8rem',
+            fontWeight: '600',
+            color: '#7a6a55',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            marginBottom: '8px',
+          }}>
+            <Layers size={13} color="#B4651E" />
             Floor
           </label>
-          <button
-            type="button"
-            onClick={() => setShowFloorModal(true)}
-            disabled={disabled || !block}
-            className={`w-full text-left px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-              disabled
-                ? 'bg-gray-100 cursor-not-allowed'
-                : floor && block
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                : 'border-gray-300 hover:border-gray-400'
-            } ${!block ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {floor || 'Select Floor'}
-          </button>
+          {selectorButton(
+            floor ? `Floor ${floor}` : '',
+            'Select Floor',
+            () => setShowFloorModal(true),
+            disabled || !block,
+            !!floor && !!block,
+          )}
           {!block && (
-            <p className="mt-1 text-sm text-gray-500">Please select a block first</p>
+            <p style={{ fontSize: '0.8rem', color: '#c4b5a0', marginTop: '6px' }}>
+              Please select a block first
+            </p>
           )}
         </div>
       </div>
-      
-      {/* Block Selection Modal */}
+
+      {/* Block Modal */}
       {showBlockModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-4 border-b">
-              <h4 className="text-lg font-semibold text-black">Select Block</h4>
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid rgba(180, 101, 30, 0.1)',
+            }}>
+              <h4 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '1.05rem',
+                fontWeight: '600',
+                color: '#1a1208',
+                margin: 0,
+              }}>
+                Select Block
+              </h4>
             </div>
-            
-            <div className="p-4 space-y-3">
+
+            <div style={{ padding: '16px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {BLOCKS.map((b) => (
                 <button
                   key={b}
                   type="button"
                   onClick={() => {
                     onBlockChange(b)
-                    onFloorChange('') // Reset floor when block changes
+                    onFloorChange('')
                     setShowBlockModal(false)
                   }}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    block === b
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-50 hover:bg-gray-100 text-black'
-                  }`}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: block === b
+                      ? '1.5px solid #B4651E'
+                      : '1.5px solid rgba(180, 101, 30, 0.1)',
+                    backgroundColor: block === b ? '#B4651E' : '#fdf6ef',
+                    color: block === b ? 'white' : '#1a1208',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
                 >
                   {b}
                 </button>
               ))}
             </div>
-            
-            <div className="p-4 border-t">
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(180, 101, 30, 0.1)' }}>
               <button
                 type="button"
                 onClick={() => setShowBlockModal(false)}
-                className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#7a6a55',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
               >
                 Cancel
               </button>
@@ -120,18 +222,30 @@ export default function BlockFloorSelector({
           </div>
         </div>
       )}
-      
-      {/* Floor Selection Modal */}
+
+      {/* Floor Modal */}
       {showFloorModal && block && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-4 border-b">
-              <h4 className="text-lg font-semibold text-black">
-                Select Floor (Block: {block})
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid rgba(180, 101, 30, 0.1)',
+            }}>
+              <h4 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '1.05rem',
+                fontWeight: '600',
+                color: '#1a1208',
+                margin: '0 0 4px',
+              }}>
+                Select Floor
               </h4>
+              <p style={{ fontSize: '0.8rem', color: '#B4651E', margin: 0, fontWeight: '500' }}>
+                Block {block}
+              </p>
             </div>
-            
-            <div className="p-4 space-y-3">
+
+            <div style={{ padding: '16px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {availableFloors.map((f) => (
                 <button
                   key={f}
@@ -140,22 +254,43 @@ export default function BlockFloorSelector({
                     onFloorChange(f)
                     setShowFloorModal(false)
                   }}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    floor === f
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-50 hover:bg-gray-100 text-black'
-                  }`}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '14px 16px',
+                    borderRadius: '10px',
+                    border: floor === f
+                      ? '1.5px solid #B4651E'
+                      : '1.5px solid rgba(180, 101, 30, 0.1)',
+                    backgroundColor: floor === f ? '#B4651E' : '#fdf6ef',
+                    color: floor === f ? 'white' : '#1a1208',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
                 >
                   Floor {f}
                 </button>
               ))}
             </div>
-            
-            <div className="p-4 border-t">
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(180, 101, 30, 0.1)' }}>
               <button
                 type="button"
                 onClick={() => setShowFloorModal(false)}
-                className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#7a6a55',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
               >
                 Cancel
               </button>

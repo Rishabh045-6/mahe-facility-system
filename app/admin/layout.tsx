@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MarshalStatsWidget from './dashboard/components/MarshalStatsWidget'
+import SignOutButton from './dashboard/components/SignOutButton'
 
 export default async function AdminLayout({
   children,
@@ -8,7 +9,6 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -16,49 +16,80 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+    <div style={{ minHeight: '100vh', backgroundColor: '#F5F0EA' }}>
+      <header style={{
+        backgroundColor: 'rgba(255, 252, 247, 0.97)',
+        borderBottom: '1px solid rgba(180, 101, 30, 0.12)',
+        backdropFilter: 'blur(8px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+      }}>
+        <div style={{
+          maxWidth: '1280px',
+          margin: '0 auto',
+          padding: '14px 32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+        }}>
+          {/* Left: branding */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              backgroundColor: '#1e2d3d',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(30, 45, 61, 0.3)',
+              flexShrink: 0,
+            }}>
+              <span style={{ color: 'white', fontWeight: '700', fontSize: '1.1rem' }}>A</span>
+            </div>
+            <div>
+              <h1 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                color: '#1a1208',
+                margin: 0,
+              }}>
+                Admin Dashboard
+              </h1>
+              <p style={{ fontSize: '0.72rem', color: '#7a6a55', margin: 0 }}>
+                MAHE Facility Management
+              </p>
+            </div>
+          </div>
 
-            {/* Left: branding */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl font-bold">A</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-black">Admin Dashboard</h1>
-                <p className="text-sm text-gray-700">MAHE Facility Management</p>
-              </div>
+          {/* Right: stats widget + user info + sign out */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <MarshalStatsWidget />
+
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1a1208', margin: 0 }}>
+                {user.email}
+              </p>
+              <p style={{ fontSize: '0.72rem', color: '#7a6a55', margin: 0 }}>
+                Administrator
+              </p>
             </div>
 
-            {/* Right: stats widget + user info + sign out */}
-            <div className="flex items-center space-x-4">
-
-              {/* ← Marshal Stats Widget lives here */}
-              <MarshalStatsWidget />
-
-              <div className="text-right">
-                <p className="text-sm font-medium text-black">{user.email}</p>
-                <p className="text-xs text-gray-500">Administrator</p>
-              </div>
-
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-black hover:text-gray-700"
-                >
-                  Sign Out
-                </button>
-              </form>
-            </div>
+            <SignOutButton />
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div style={{
+        maxWidth: '1280px',
+        margin: '0 auto',
+        padding: '32px 32px 80px',
+      }}>
         {children}
-      </main>
+      </div>
     </div>
   )
 }

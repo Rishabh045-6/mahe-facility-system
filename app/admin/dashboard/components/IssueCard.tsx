@@ -1,16 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Image as ImageIcon, 
-  MapPin, 
-  Clock, 
-  User,
-  ChevronDown,
-  ChevronUp,
-  Tag
+import {
+  CheckCircle2, XCircle, Image as ImageIcon,
+  MapPin, Clock, User, ChevronDown, ChevronUp, Tag, Package
 } from 'lucide-react'
 import { formatTime } from '@/lib/utils/time'
 import IssueGallery from './IssueGallery'
@@ -25,11 +18,9 @@ interface Issue {
   is_movable: boolean
   images?: string[]
   marshal_id: string
-  status: 'approved' | 'denied'
+  status: 'approved' | 'denied' | 'pending'
   reported_at: string
-  marshals?: {
-    name: string
-  }
+  marshals?: { name: string }
 }
 
 interface IssueCardProps {
@@ -39,130 +30,185 @@ interface IssueCardProps {
 
 export default function IssueCard({ issue, onStatusChange }: IssueCardProps) {
   const [expanded, setExpanded] = useState(false)
-  
-  const getStatusColor = () => {
-    switch (issue.status) {
-      case 'approved':
-        return 'bg-green-100 text-green-700'
-      case 'denied':
-        return 'bg-red-100 text-red-700'
-      default:
-        return 'bg-yellow-100 text-yellow-700'
-    }
+
+  const isApproved = issue.status === 'approved'
+  const isDenied = issue.status === 'denied'
+  const isPending = !isApproved && !isDenied
+
+  const statusStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '3px 10px',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    letterSpacing: '0.04em',
+    fontFamily: "'DM Sans', sans-serif",
+    backgroundColor: isApproved ? '#dcfce7' : isDenied ? '#fee2e2' : '#fef3c7',
+    color: isApproved ? '#166534' : isDenied ? '#991b1b' : '#92400e',
+    border: `1px solid ${isApproved ? 'rgba(22,163,74,0.2)' : isDenied ? 'rgba(220,38,38,0.2)' : 'rgba(245,158,11,0.2)'}`,
   }
-  
-  const getStatusIcon = () => {
-    switch (issue.status) {
-      case 'approved':
-        return <CheckCircle2 className="w-5 h-5 text-green-600" />
-      case 'denied':
-        return <XCircle className="w-5 h-5 text-red-600" />
-      default:
-        return <Clock className="w-5 h-5 text-yellow-600" />
-    }
-  }
-  
+
+  const metaItem = (icon: React.ReactNode, text: string) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '6px',
+      fontSize: '0.8rem', color: '#7a6a55',
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {icon}
+      <span>{text}</span>
+    </div>
+  )
+
   return (
-    <div className="p-6 hover:bg-gray-50 transition-colors">
-      <div className="flex items-start justify-between">
-        {/* Left Section - Issue Info */}
-        <div className="flex-1">
-          <div className="flex items-center space-x-2 mb-2">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor()}`}>
-              {issue.status.charAt(0).toUpperCase() + issue.status.slice(1)}
+    <div style={{
+      padding: '20px 24px',
+      backgroundColor: 'rgba(255,252,247,0.6)',
+      transition: 'background-color 0.15s',
+    }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fdf6ef'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,252,247,0.6)'}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+
+        {/* Left */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Status + type */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <span style={statusStyle}>
+              {isApproved ? '✓' : isDenied ? '✕' : '·'}
+              {(issue.status || 'pending').charAt(0).toUpperCase() + (issue.status || 'pending').slice(1)}
             </span>
-            {getStatusIcon()}
+            {issue.is_movable && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                padding: '3px 10px', borderRadius: '20px',
+                fontSize: '0.75rem', fontWeight: '600',
+                backgroundColor: '#fdf6ef',
+                border: '1px solid rgba(180,101,30,0.2)',
+                color: '#B4651E',
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                <Package size={11} />
+                Movable
+              </span>
+            )}
           </div>
-          
-          <h3 className="text-lg font-semibold text-black mb-2">
+
+          <h3 style={{
+            fontSize: '1rem', fontWeight: '700',
+            color: '#1a1208', margin: '0 0 10px',
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
             {issue.issue_type}
           </h3>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-700 mb-3">
-            <div className="flex items-center">
-              <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-              <span>{issue.block}, Floor {issue.floor}</span>
-            </div>
-            
-            {issue.room_location && (
-              <div className="flex items-center">
-                <Tag className="w-4 h-4 mr-2 text-gray-400" />
-                <span>{issue.room_location}</span>
-              </div>
-            )}
-            
-            <div className="flex items-center">
-              <Clock className="w-4 h-4 mr-2 text-gray-400" />
-              <span>{formatTime(issue.reported_at)}</span>
-            </div>
-            
-            <div className="flex items-center">
-              <User className="w-4 h-4 mr-2 text-gray-400" />
-              <span>{issue.marshals?.name || issue.marshal_id || 'Unknown Marshal'}</span>
-            </div>
+
+          {/* Meta row */}
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: '12px',
+            marginBottom: '12px',
+          }}>
+            {metaItem(<MapPin size={13} color="#B4651E" />, `${issue.block}, Floor ${issue.floor}`)}
+            {issue.room_location && metaItem(<Tag size={13} color="#B4651E" />, issue.room_location)}
+            {metaItem(<Clock size={13} color="#B4651E" />, formatTime(issue.reported_at))}
+            {metaItem(<User size={13} color="#B4651E" />, issue.marshals?.name || issue.marshal_id || 'Unknown')}
           </div>
-          
-          <p className="text-gray-700 mb-3">{issue.description}</p>
-          
-          {issue.is_movable && (
-            <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm mb-3">
-              <span>📦 Movable Item</span>
-            </div>
-          )}
-          
+
+          <p style={{
+            fontSize: '0.875rem', color: '#3d2f1e', lineHeight: 1.6,
+            margin: '0 0 12px', fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {issue.description}
+          </p>
+
+          {/* Image toggle */}
           {issue.images && issue.images.length > 0 && (
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center text-primary-600 hover:text-primary-700 text-sm font-medium"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px',
+                backgroundColor: expanded ? '#fdf6ef' : 'transparent',
+                border: '1.5px solid rgba(180,101,30,0.2)',
+                borderRadius: '8px',
+                color: '#B4651E',
+                fontSize: '0.8rem', fontWeight: '600',
+                cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+                transition: 'all 0.15s',
+              }}
             >
-              <ImageIcon className="w-4 h-4 mr-2" />
+              <ImageIcon size={13} />
               {issue.images.length} {issue.images.length === 1 ? 'image' : 'images'}
-              {expanded ? (
-                <ChevronUp className="w-4 h-4 ml-1" />
-              ) : (
-                <ChevronDown className="w-4 h-4 ml-1" />
-              )}
+              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
           )}
         </div>
-        
-        {/* Right Section - Status Toggle */}
-        <div className="flex flex-col items-end space-y-3">
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <p className="text-xs text-gray-500 mb-2">Quick Actions</p>
-            <div className="flex space-x-2">
+
+        {/* Right — approve / deny */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{
+            backgroundColor: '#fdf6ef',
+            border: '1px solid rgba(180,101,30,0.12)',
+            borderRadius: '12px',
+            padding: '10px 12px',
+          }}>
+            <p style={{
+              fontSize: '0.7rem', color: '#7a6a55', fontWeight: '600',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              margin: '0 0 8px', textAlign: 'center',
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              Quick Actions
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => onStatusChange(issue.id, 'approved')}
-                className={`p-2 rounded-full transition-colors ${
-                  issue.status === 'approved'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-green-100 text-green-600 hover:bg-green-200'
-                }`}
                 title="Approve"
+                style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  border: isApproved ? '2px solid #16a34a' : '1.5px solid rgba(22,163,74,0.25)',
+                  backgroundColor: isApproved ? '#16a34a' : '#dcfce7',
+                  color: isApproved ? 'white' : '#16a34a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => { if (!isApproved) e.currentTarget.style.backgroundColor = '#bbf7d0' }}
+                onMouseLeave={(e) => { if (!isApproved) e.currentTarget.style.backgroundColor = '#dcfce7' }}
               >
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 size={17} />
               </button>
-              
+
               <button
                 onClick={() => onStatusChange(issue.id, 'denied')}
-                className={`p-2 rounded-full transition-colors ${
-                  issue.status === 'denied'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-red-100 text-red-600 hover:bg-red-200'
-                }`}
                 title="Deny"
+                style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  border: isDenied ? '2px solid #dc2626' : '1.5px solid rgba(220,38,38,0.25)',
+                  backgroundColor: isDenied ? '#dc2626' : '#fee2e2',
+                  color: isDenied ? 'white' : '#dc2626',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => { if (!isDenied) e.currentTarget.style.backgroundColor = '#fecaca' }}
+                onMouseLeave={(e) => { if (!isDenied) e.currentTarget.style.backgroundColor = '#fee2e2' }}
               >
-                <XCircle className="w-5 h-5" />
+                <XCircle size={17} />
               </button>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Image Gallery (Collapsible) */}
+
+      {/* Gallery */}
       {expanded && issue.images && issue.images.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
+        <div style={{
+          marginTop: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid rgba(180,101,30,0.1)',
+        }}>
           <IssueGallery images={issue.images} />
         </div>
       )}

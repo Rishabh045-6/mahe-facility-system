@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Image as ImageIcon, X, Upload as UploadIcon } from 'lucide-react'
+import { Image as ImageIcon, X, Upload as UploadIcon, Camera } from 'lucide-react'
 import { MAX_IMAGES_PER_ISSUE } from '@/lib/utils/constants'
 
 interface ImageUploaderProps {
@@ -17,163 +17,340 @@ export default function ImageUploader({
   onRemove,
   disabled = false,
 }: ImageUploaderProps) {
-  // ✅ 1. State defined INSIDE the component
   const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
-  
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    
-    setCompressing(true) // ✅ Logic triggers here
-    
+    setCompressing(true)
     try {
       const fileArray = Array.from(files)
-      
-      // Validate file types
-      const validFiles = fileArray.filter(file => 
+      const validFiles = fileArray.filter(file =>
         file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
       )
-      
       if (validFiles.length < fileArray.length) {
         alert('Some files were skipped. Only images under 5MB are allowed.')
       }
-      
-      // Create preview URLs
       const newPreviews = validFiles.map(file => URL.createObjectURL(file))
       setPreviewUrls(prev => [...prev, ...newPreviews])
-      
-      // Simulate a small delay so the user sees the spinner (optional, but good UX)
       await new Promise(resolve => setTimeout(resolve, 500))
-
       onUpload(validFiles)
-      
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
-      setCompressing(false) // ✅ Logic ends here
+      setCompressing(false)
     }
   }
-  
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
-  }
-  
+
+  const triggerFileInput = () => fileInputRef.current?.click()
+
   const removeImage = (index: number) => {
-    // Revoke preview URL to prevent memory leaks
-    if (previewUrls[index]) {
-      URL.revokeObjectURL(previewUrls[index])
-    }
+    if (previewUrls[index]) URL.revokeObjectURL(previewUrls[index])
     setPreviewUrls(prev => prev.filter((_, i) => i !== index))
     onRemove(index)
   }
-  
+
+  const remaining = MAX_IMAGES_PER_ISSUE - images.length
+
   return (
-    <div className="bg-white rounded-lg shadow p-6 relative">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-black">Upload Images</h3>
-        <span className="text-sm text-gray-500">
-          {images.length}/{MAX_IMAGES_PER_ISSUE} images
+    <div>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '16px',
+      }}>
+        <h3 style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: '1.1rem',
+          fontWeight: '600',
+          color: '#1a1208',
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <Camera size={18} color="#B4651E" />
+          Upload Images
+        </h3>
+        <span style={{
+          fontSize: '0.8rem',
+          fontWeight: '600',
+          color: images.length >= MAX_IMAGES_PER_ISSUE ? '#dc2626' : '#7a6a55',
+          backgroundColor: images.length >= MAX_IMAGES_PER_ISSUE ? '#fee2e2' : '#fdf6ef',
+          border: `1px solid ${images.length >= MAX_IMAGES_PER_ISSUE ? 'rgba(220,38,38,0.2)' : 'rgba(180,101,30,0.15)'}`,
+          borderRadius: '20px',
+          padding: '3px 10px',
+          fontFamily: "'DM Sans', sans-serif",
+        }}>
+          {images.length}/{MAX_IMAGES_PER_ISSUE}
         </span>
       </div>
-      
-      <p className="text-sm text-gray-700 mb-4">
+
+      <p style={{
+        fontSize: '0.85rem',
+        color: '#7a6a55',
+        margin: '0 0 20px',
+        fontFamily: "'DM Sans', sans-serif",
+        lineHeight: 1.5,
+      }}>
         Upload photos of the issues found. Maximum {MAX_IMAGES_PER_ISSUE} images, each under 5MB.
-        Images will be automatically compressed.
       </p>
-      
-      {/* Image Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+
+      {/* Image grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+        gap: '12px',
+        marginBottom: '16px',
+      }}>
         {images.map((file, index) => (
-          <div key={index} className="relative group">
-            <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+          <div key={index} style={{ position: 'relative' }}>
+            <div style={{
+              aspectRatio: '1',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1.5px solid rgba(180, 101, 30, 0.15)',
+              backgroundColor: '#fdf6ef',
+            }}>
               <img
                 src={previewUrls[index] || URL.createObjectURL(file)}
                 alt={`Preview ${index + 1}`}
-                className="w-full h-full object-cover"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
-            
+
             {!disabled && (
               <button
                 type="button"
                 onClick={() => removeImage(index)}
-                className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                title="Remove image"
+                style={{
+                  position: 'absolute',
+                  top: '6px',
+                  right: '6px',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: '#dc2626',
+                  border: 'none',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                }}
               >
-                <X className="w-4 h-4" />
+                <X size={13} />
               </button>
             )}
-            
-            <div className="mt-2 text-xs text-gray-700 truncate">
-              {file.name.length > 15 ? `${file.name.slice(0, 15)}...` : file.name}
-            </div>
+
+            <p style={{
+              fontSize: '0.72rem',
+              color: '#7a6a55',
+              marginTop: '6px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              {file.name.length > 14 ? `${file.name.slice(0, 14)}…` : file.name}
+            </p>
           </div>
         ))}
-        
+
+        {/* Add more slot */}
         {images.length < MAX_IMAGES_PER_ISSUE && !disabled && (
           <button
             type="button"
             onClick={triggerFileInput}
-            className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-primary-500 hover:bg-primary-50 transition-colors"
+            style={{
+              aspectRatio: '1',
+              border: '1.5px dashed rgba(180, 101, 30, 0.3)',
+              borderRadius: '12px',
+              backgroundColor: '#fdf6ef',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              color: '#B4651E',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#faeaD8'
+              e.currentTarget.style.borderColor = '#B4651E'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#fdf6ef'
+              e.currentTarget.style.borderColor = 'rgba(180, 101, 30, 0.3)'
+            }}
           >
-            <UploadIcon className="w-8 h-8 text-gray-400" />
-            <span className="text-sm text-gray-500 mt-2">Upload</span>
+            <UploadIcon size={22} color="#B4651E" />
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: '500',
+              color: '#B4651E',
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              Add
+            </span>
           </button>
         )}
       </div>
-      
-      {/* Hidden File Input */}
+
+      {/* Main upload button */}
+      {images.length < MAX_IMAGES_PER_ISSUE && !disabled && (
+        <button
+          type="button"
+          onClick={triggerFileInput}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '12px',
+            backgroundColor: 'transparent',
+            border: '1.5px solid #B4651E',
+            borderRadius: '10px',
+            color: '#B4651E',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            marginBottom: '16px',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fdf6ef'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          <UploadIcon size={16} />
+          Select Images from Device
+          {remaining > 0 && (
+            <span style={{
+              fontSize: '0.75rem',
+              color: '#7a6a55',
+              fontWeight: '400',
+            }}>
+              ({remaining} remaining)
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* Tips */}
+      <div style={{
+        backgroundColor: '#fdf6ef',
+        border: '1px solid rgba(180, 101, 30, 0.15)',
+        borderLeft: '3px solid #B4651E',
+        borderRadius: '0 10px 10px 0',
+        padding: '14px 16px',
+        display: 'flex',
+        gap: '12px',
+      }}>
+        <ImageIcon size={18} color="#B4651E" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <p style={{
+            fontSize: '0.8rem',
+            fontWeight: '600',
+            color: '#B4651E',
+            margin: '0 0 6px',
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            Image Tips
+          </p>
+          <ul style={{
+            margin: 0,
+            padding: 0,
+            listStyle: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+          }}>
+            {[
+              'Take clear, well-lit photos',
+              'Show the issue from multiple angles if needed',
+              'Include context (room number, location)',
+              'Images will be compressed automatically',
+            ].map((tip, i) => (
+              <li key={i} style={{
+                fontSize: '0.8rem',
+                color: '#7a6a55',
+                fontFamily: "'DM Sans', sans-serif",
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '6px',
+              }}>
+                <span style={{ color: '#B4651E', fontWeight: '700', flexShrink: 0 }}>·</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         multiple
         onChange={handleFileSelect}
-        className="hidden"
+        style={{ display: 'none' }}
         disabled={disabled || images.length >= MAX_IMAGES_PER_ISSUE}
       />
-      
-      {/* Upload Button (Mobile Friendly) */}
-      {images.length < MAX_IMAGES_PER_ISSUE && !disabled && (
-        <button
-          type="button"
-          onClick={triggerFileInput}
-          className="w-full flex items-center justify-center px-4 py-3 border-2 border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-50 mb-4"
-          disabled={images.length >= MAX_IMAGES_PER_ISSUE}
-        >
-          <UploadIcon className="w-5 h-5 mr-2" />
-          Select Images from Device
-        </button>
-      )}
-      
-      {/* Info Box */}
-      <div className="mt-4 bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
-        <div className="flex items-start">
-          <ImageIcon className="w-5 h-5 text-blue-400 mt-0.5 mr-2" />
-          <div>
-            <p className="text-sm font-medium text-blue-800">Image Tips:</p>
-            <ul className="text-sm text-blue-700 mt-1 space-y-1">
-              <li>• Take clear, well-lit photos</li>
-              <li>• Show the issue from multiple angles if needed</li>
-              <li>• Include context (room number, location)</li>
-              <li>• Images will be compressed automatically</li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
-      {/* ✅ 2. THE LOADING OVERLAY (Added here) */}
+      {/* Compressing overlay */}
       {compressing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 text-center max-w-sm mx-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-            <p className="text-gray-900 font-medium text-lg">Compressing images...</p>
-            <p className="text-sm text-gray-600 mt-2">This may take a few seconds</p>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{
+            backgroundColor: 'rgba(255, 252, 247, 0.98)',
+            border: '1px solid rgba(180, 101, 30, 0.15)',
+            borderRadius: '18px',
+            padding: '36px 40px',
+            textAlign: 'center',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              border: '3px solid rgba(180,101,30,0.2)',
+              borderTopColor: '#B4651E',
+              animation: 'spin 0.8s linear infinite',
+              margin: '0 auto 16px',
+            }} />
+            <p style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: '1.1rem',
+              fontWeight: '600',
+              color: '#1a1208',
+              margin: '0 0 6px',
+            }}>
+              Processing images...
+            </p>
+            <p style={{
+              fontSize: '0.85rem',
+              color: '#7a6a55',
+              margin: 0,
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              This may take a few seconds
+            </p>
           </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
     </div>

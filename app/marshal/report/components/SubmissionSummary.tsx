@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, AlertCircle, Layers, Image as ImageIcon } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Layers, Image as ImageIcon, ClipboardList, AlertTriangle } from 'lucide-react'
 
 interface SubmissionSummaryProps {
   block: string
@@ -17,125 +17,221 @@ export default function SubmissionSummary({
   issueCount,
   imageCount,
 }: SubmissionSummaryProps) {
-  const totalChecklistItems = 19 // Total items in checklist
-  const completionPercentage = Math.round((checklistCount / totalChecklistItems) * 100)
-  
-  const isComplete = block && floor && checklistCount === totalChecklistItems
-  
+  const totalChecklistItems = 19
+  const completionPct = Math.round((checklistCount / totalChecklistItems) * 100)
+  const isComplete = !!(block && floor && checklistCount === totalChecklistItems)
+
+  const row = (
+    icon: React.ReactNode,
+    label: string,
+    value: string,
+    right: React.ReactNode,
+    highlight?: boolean,
+  ) => (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '14px 16px',
+      backgroundColor: highlight ? '#fdf6ef' : '#fffcf7',
+      borderRadius: '12px',
+      border: `1px solid ${highlight ? 'rgba(180,101,30,0.15)' : 'rgba(180,101,30,0.08)'}`,
+      gap: '12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          borderRadius: '10px',
+          backgroundColor: '#fdf6ef',
+          border: '1px solid rgba(180,101,30,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div>
+          <p style={{
+            fontSize: '0.75rem',
+            color: '#7a6a55',
+            margin: '0 0 2px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontWeight: '500',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            {label}
+          </p>
+          <p style={{
+            fontSize: '0.95rem',
+            fontWeight: '600',
+            color: '#1a1208',
+            margin: 0,
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {value}
+          </p>
+        </div>
+      </div>
+      <div style={{ flexShrink: 0 }}>{right}</div>
+    </div>
+  )
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-black mb-4">Submission Summary</h3>
-      
-      <div className="space-y-4">
+    <div>
+      <h3 style={{
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: '1.1rem',
+        fontWeight: '600',
+        color: '#1a1208',
+        margin: '0 0 20px',
+      }}>
+        Submission Summary
+      </h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+
         {/* Location */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center">
-            <Layers className="w-5 h-5 text-gray-400 mr-3" />
-            <div>
-              <p className="text-sm text-gray-500">Location</p>
-              <p className="font-medium text-black">
-                {block ? `${block}, Floor ${floor}` : 'Not selected'}
-              </p>
+        {row(
+          <Layers size={16} color="#B4651E" />,
+          'Location',
+          block && floor ? `${block}, Floor ${floor}` : 'Not selected',
+          block && floor
+            ? <CheckCircle2 size={20} color="#16a34a" />
+            : <AlertCircle size={20} color="#f59e0b" />,
+          !!(block && floor),
+        )}
+
+        {/* Checklist */}
+        {row(
+          <ClipboardList size={16} color="#B4651E" />,
+          'Checklist Completion',
+          `${checklistCount}/${totalChecklistItems} items`,
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '72px',
+              height: '6px',
+              backgroundColor: 'rgba(180,101,30,0.1)',
+              borderRadius: '6px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${completionPct}%`,
+                backgroundColor: completionPct === 100 ? '#16a34a' : '#B4651E',
+                borderRadius: '6px',
+                transition: 'width 0.3s ease',
+              }} />
             </div>
-          </div>
-          {block && floor ? (
-            <CheckCircle2 className="w-5 h-5 text-green-500" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-yellow-500" />
-          )}
-        </div>
-        
-        {/* Checklist Completion */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center">
-            <span className="text-2xl mr-3">📋</span>
-            <div>
-              <p className="text-sm text-gray-500">Checklist Completion</p>
-              <p className="font-medium text-black">
-                {checklistCount}/{totalChecklistItems} items
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="w-16 bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-primary-600 h-2 rounded-full"
-                style={{ width: `${completionPercentage}%` }}
-              ></div>
-            </div>
-            <p className="text-sm font-medium text-primary-600 mt-1">{completionPercentage}%</p>
-          </div>
-        </div>
-        
-        {/* Issues Reported */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-gray-400 mr-3" />
-            <div>
-              <p className="text-sm text-gray-500">Issues Reported</p>
-              <p className="font-medium text-black">
-                {issueCount} {issueCount === 1 ? 'issue' : 'issues'}
-              </p>
-            </div>
-          </div>
-          {issueCount > 0 ? (
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
-              {issueCount}
+            <span style={{
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              color: completionPct === 100 ? '#16a34a' : '#B4651E',
+              fontFamily: "'DM Sans', sans-serif",
+              minWidth: '36px',
+              textAlign: 'right',
+            }}>
+              {completionPct}%
             </span>
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-green-500" />
-          )}
-        </div>
-        
-        {/* Images Uploaded */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center">
-            <ImageIcon className="w-5 h-5 text-gray-400 mr-3" />
-            <div>
-              <p className="text-sm text-gray-500">Images Uploaded</p>
-              <p className="font-medium text-black">
-                {imageCount} {imageCount === 1 ? 'image' : 'images'}
-              </p>
-            </div>
-          </div>
-          {imageCount > 0 ? (
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-              {imageCount}
-            </span>
-          ) : (
-            <span className="text-gray-400 text-sm">Optional</span>
-          )}
-        </div>
-        
-        {/* Completion Status */}
-        <div className={`p-4 rounded-lg ${
-          isComplete
-            ? 'bg-green-50 border border-green-200'
-            : 'bg-yellow-50 border border-yellow-200'
-        }`}>
-          <div className="flex items-center">
-            {isComplete ? (
-              <>
-                <CheckCircle2 className="w-6 h-6 text-green-500 mr-3" />
-                <div>
-                  <p className="font-semibold text-green-800">Ready to Submit</p>
-                  <p className="text-sm text-green-700 mt-1">
-                    All required fields are completed. You can submit your report.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="w-6 h-6 text-yellow-500 mr-3" />
-                <div>
-                  <p className="font-semibold text-yellow-800">Incomplete Report</p>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    Please complete all required fields before submitting.
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
+          </div>,
+          checklistCount === totalChecklistItems,
+        )}
+
+        {/* Issues */}
+        {row(
+          <AlertTriangle size={16} color="#B4651E" />,
+          'Issues Reported',
+          `${issueCount} ${issueCount === 1 ? 'issue' : 'issues'}`,
+          issueCount > 0
+            ? (
+              <span style={{
+                backgroundColor: '#fef3c7',
+                border: '1px solid rgba(245,158,11,0.3)',
+                color: '#92400e',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                {issueCount}
+              </span>
+            )
+            : <CheckCircle2 size={20} color="#16a34a" />,
+          issueCount > 0,
+        )}
+
+        {/* Images */}
+        {row(
+          <ImageIcon size={16} color="#B4651E" />,
+          'Images Uploaded',
+          `${imageCount} ${imageCount === 1 ? 'image' : 'images'}`,
+          imageCount > 0
+            ? (
+              <span style={{
+                backgroundColor: '#fdf6ef',
+                border: '1px solid rgba(180,101,30,0.2)',
+                color: '#B4651E',
+                fontSize: '0.8rem',
+                fontWeight: '700',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                {imageCount}
+              </span>
+            )
+            : (
+              <span style={{
+                fontSize: '0.8rem',
+                color: '#c4b5a0',
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                Optional
+              </span>
+            ),
+          false,
+        )}
+      </div>
+
+      {/* Status banner */}
+      <div style={{
+        padding: '16px 20px',
+        borderRadius: '12px',
+        backgroundColor: isComplete ? 'rgba(22, 163, 74, 0.06)' : 'rgba(245, 158, 11, 0.06)',
+        border: `1.5px solid ${isComplete ? 'rgba(22, 163, 74, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+      }}>
+        {isComplete
+          ? <CheckCircle2 size={24} color="#16a34a" style={{ flexShrink: 0 }} />
+          : <AlertCircle size={24} color="#f59e0b" style={{ flexShrink: 0 }} />
+        }
+        <div>
+          <p style={{
+            fontWeight: '700',
+            color: isComplete ? '#166534' : '#92400e',
+            margin: '0 0 3px',
+            fontSize: '0.95rem',
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {isComplete ? 'Ready to Submit' : 'Incomplete Report'}
+          </p>
+          <p style={{
+            fontSize: '0.82rem',
+            color: isComplete ? '#166534' : '#92400e',
+            margin: 0,
+            fontFamily: "'DM Sans', sans-serif",
+            opacity: 0.85,
+          }}>
+            {isComplete
+              ? 'All required fields are completed. You can submit your report.'
+              : 'Please complete all required fields before submitting.'
+            }
+          </p>
         </div>
       </div>
     </div>

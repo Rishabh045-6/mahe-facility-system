@@ -1,16 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
-import './global.css'
 import { Toaster } from 'react-hot-toast'
+import '@/styles/globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
-
-// ✅ Metadata
 export const metadata: Metadata = {
   title: 'MAHE Facility Management',
   description: 'Facility inspection and issue reporting system for MAHE',
   manifest: '/manifest.json',
-
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -18,14 +13,12 @@ export const metadata: Metadata = {
   },
 }
 
-// ✅ Viewport (ONLY viewport-related fields allowed here)
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#2563eb',
+  themeColor: '#B4651E',
 }
-
 
 export default function RootLayout({
   children,
@@ -36,18 +29,19 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        {/* ⚠️ REMOVED duplicate meta tags - viewport export handles these */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className={inter.className}>
+      <body>
         {children}
         <Toaster
           position="top-center"
           toastOptions={{
             duration: 3000,
             style: {
-              background: '#fff',
-              color: '#363636',
-              border: '1px solid #e5e7eb',
+              background: '#fffcf7',
+              color: '#1a1208',
+              border: '1px solid rgba(180, 101, 30, 0.2)',
             },
           }}
         />

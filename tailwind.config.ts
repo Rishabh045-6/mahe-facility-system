@@ -9,16 +9,16 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50:  '#fdf6ef',
+          100: '#faeaD8',
+          200: '#f5d0a9',
+          300: '#edb175',
+          400: '#e3903f',
+          500: '#c9721f',
+          600: '#B4651E',
+          700: '#8f4e16',
+          800: '#6e3c12',
+          900: '#1e2d3d',
         },
       },
       textColor: {  // ✅ ADDED

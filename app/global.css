@@ -1,42 +1,33 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+@layer base {
+  body {
+    background-color: #F5F0EA;
+    font-family: 'DM Sans', sans-serif;
+    color: #1a1208;
   }
-}
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
 
-/* Set default text color to black */
-/* ✅ ADD THIS INSTEAD ✅ */
-/* Default text color for body */
-body {
-  color: #000000;
-}
+  input, textarea, select {
+    color: #1a1208;
+  }
 
-/* Ensure form elements have proper contrast */
-input,
-textarea,
-select,
-button {
-  color: #000000;
+  ::selection {
+    background-color: #B4651E;
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid #B4651E;
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
@@ -45,54 +36,21 @@ button {
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f5f0ea; }
+::-webkit-scrollbar-thumb { background: #c4a882; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #B4651E; }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
+/* Hidden broken images */
+img[src=""], img:not([src]) { opacity: 0; }
 
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* Selection color */
-::selection {
-  background-color: #2563eb;
-  color: white;
-}
-
-/* Image placeholder */
-img[src=""],
-img:not([src]) {
-  opacity: 0;
-}
-
-/* Focus ring improvements */
-:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-
-/* Print styles */
+/* Print */
 @media print {
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
-/* PWA splash screen */
+/* PWA standalone */
 @media (display-mode: standalone) {
-  body {
-    background-color: white;
-  }
+  body { background-color: #F5F0EA; }
 }

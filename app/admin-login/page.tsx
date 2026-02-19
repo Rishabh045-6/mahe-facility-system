@@ -19,20 +19,18 @@ export default function AdminLoginPage() {
     setError('')
 
     try {
-      // ✅ CALL OUR API ROUTE INSTEAD OF DIRECT SUPABASE AUTH
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.trim(), 
-          password: password.trim() 
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim()
         }),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        // ✅ SHOW DETAILED ERROR FROM API
         setError(result.details || result.error || 'Invalid credentials')
         toast.error(result.error || 'Login failed')
         setLoading(false)
@@ -43,7 +41,6 @@ export default function AdminLoginPage() {
       router.push('/admin/dashboard')
 
     } catch (err) {
-      console.error('Login error:', err)
       setError('Network error. Please check your connection.')
       toast.error('Login failed. Please try again.')
     } finally {
@@ -51,96 +48,187 @@ export default function AdminLoginPage() {
     }
   }
 
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 16px',
+    border: '1.5px solid rgba(180, 101, 30, 0.25)',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    outline: 'none',
+    backgroundColor: '#fffcf7',
+    color: '#1a1208',
+    boxSizing: 'border-box' as const,
+  }
+
   return (
-    <div className="min-h-screen .bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
-        <Link href="/" className="text-black hover:text-gray-700 mb-4 inline-block font-medium">
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#F5F0EA',
+      backgroundImage: 'radial-gradient(ellipse at 20% 20%, rgba(185, 100, 30, 0.07) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(185, 100, 30, 0.05) 0%, transparent 60%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px',
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      <div style={{
+        background: 'rgba(255, 252, 247, 0.92)',
+        border: '1px solid rgba(180, 101, 30, 0.12)',
+        borderRadius: '24px',
+        padding: '48px 40px',
+        width: '100%',
+        maxWidth: '420px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.03), 0 20px 60px rgba(0,0,0,0.08)',
+      }}>
+        <Link href="/" style={{
+          color: '#7a6a55',
+          textDecoration: 'none',
+          fontSize: '0.875rem',
+          display: 'inline-block',
+          marginBottom: '32px',
+        }}>
           ← Back to Home
         </Link>
 
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-4xl font-bold">A</span>
+        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+          <div style={{
+            width: '72px',
+            height: '72px',
+            backgroundColor: '#1e2d3d',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            boxShadow: '0 4px 16px rgba(30, 45, 61, 0.3)',
+          }}>
+            <span style={{ color: 'white', fontSize: '1.75rem', fontWeight: '700' }}>A</span>
           </div>
-          <h1 className="text-3xl font-bold text-black mb-2">
+          <h2 style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: '1.75rem',
+            fontWeight: '600',
+            color: '#1a1208',
+            marginBottom: '8px',
+          }}>
             Admin Dashboard
-          </h1>
-          <p className="text-gray-700">
+          </h2>
+          <p style={{ color: '#7a6a55', fontSize: '0.9rem' }}>
             MAHE Facility Management System
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r">
-              <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-red-400 mr-3" />
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}>
+              <AlertCircle size={16} color="#ef4444" />
+              <p style={{ color: '#dc2626', fontSize: '0.875rem', margin: 0 }}>{error}</p>
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-black mb-2">
-              <div className="flex items-center">
-                <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                Email Address
-              </div>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#1a1208',
+              marginBottom: '8px',
+            }}>
+              <Mail size={14} color="#B4651E" />
+              Email Address
             </label>
             <input
-              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               placeholder="admin@mahe.edu"
               required
               autoFocus
+              style={inputStyle}
+              onFocus={(e) => e.target.style.borderColor = '#B4651E'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)'}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-black mb-2">
-              <div className="flex items-center">
-                <Lock className="w-4 h-4 mr-2 text-gray-400" />
-                Password
-              </div>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#1a1208',
+              marginBottom: '8px',
+            }}>
+              <Lock size={14} color="#B4651E" />
+              Password
             </label>
             <input
-              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               placeholder="Enter your password"
               required
+              style={inputStyle}
+              onFocus={(e) => e.target.style.borderColor = '#B4651E'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)'}
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            style={{
+              width: '100%',
+              padding: '14px',
+              backgroundColor: '#1e2d3d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a3f57')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e2d3d')}
           >
             {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Logging in...</span>
-              </>
+              <span>Logging in...</span>
             ) : (
               <>
-                <LogIn className="w-5 h-5" />
+                <LogIn size={18} />
                 <span>Login</span>
               </>
             )}
           </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-700">
-            Contact system administrator for access
-          </p>
-        </div>
+        <p style={{
+          textAlign: 'center',
+          fontSize: '0.8rem',
+          color: '#b0a090',
+          marginTop: '24px',
+          paddingTop: '24px',
+          borderTop: '1px solid rgba(180, 101, 30, 0.1)',
+        }}>
+          Contact system administrator for access
+        </p>
       </div>
     </div>
   )

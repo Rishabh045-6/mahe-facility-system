@@ -1,123 +1,93 @@
-# 🏛️ MAHE Facility Management System
+# MAHE Facility Management System
 
-**Zero-Cost Progressive Web Application for Streamlining Daily Facility Inspections at Manipal Academy of Higher Education**
-
-![MAHE Logo](https://mahe.edu.in/images/mahe-logo.png)
+A web-based facility inspection and reporting system for Manipal Academy of Higher Education. Built to replace manual WhatsApp and paper-based workflows with a structured digital process. Marshals submit daily inspection reports, admins review and action them, and the director receives an automated summary every evening.
 
 ---
 
-## 📌 Table of Contents
-- [🌟 Overview](#overview)
-- [🚀 Key Features](#key-features)
-- [🛠️ Tech Stack](#tech-stack)
-- [📋 Prerequisites](#prerequisites)
-- [⚡ Quick Start Guide](#quick-start-guide)
-- [🗄️ Supabase Setup (Critical)](#supabase-setup-critical)
-- [📧 SMTP Configuration Explained](#smtp-configuration-explained)
-- [♻️ Auto-Cleanup System (2-Day Retention)](#auto-cleanup-system-2-day-retention)
-- [📱 Usage Guide](#usage-guide)
-- [🌐 Deployment to Vercel](#deployment-to-vercel)
-- [🐛 Troubleshooting](#troubleshooting)
-- [📁 Project Structure](#project-structure)
-- [🔒 Security Notes](#security-notes)
-- [📄 License](#license)
+## Tech Stack
+
+- **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
+- **Database:** Supabase (PostgreSQL)
+- **Storage:** Supabase Storage (facility images)
+- **Authentication:** Supabase Auth (admin only)
+- **Email:** Nodemailer with Gmail SMTP
+- **Reports:** PDFKit (PDF generation), ExcelJS (spreadsheet generation)
+- **Deployment:** Vercel
+- **Offline Support:** IndexedDB queue with auto-sync
 
 ---
 
-## 🌟 Overview
+## How It Works
 
-This system transforms MAHE's fragmented facility inspection process into a streamlined digital workflow. Marshals report issues via mobile PWA, admins review after 6 PM, and directors receive professional reports automatically—all with **zero infrastructure costs** using Supabase and Vercel free tiers.
+### Marshal
 
-**Key Innovation**: Replaces WhatsApp chaos and paper forms with structured digital workflows while maintaining offline capability for campus connectivity challenges.
+Marshals are the facility inspectors assigned to specific blocks and floors each day.
 
----
+1. Navigate to the Marshal Portal and log in with a Marshal ID and name
+2. Select the block and floor being inspected
+3. Complete the 19 item daily inspection checklist across four categories: Daily Observations, Classroom and Lab Upkeep, Washroom and Utility, and Maintenance
+4. Declare whether any issues were found during the inspection
+5. If issues exist, add each one with an issue type, description, room location, and photos
+6. Submit the report before 6:00 PM
 
-## 🚀 Key Features
-
-### 👷 For Marshals
-- ✅ **Offline-First PWA**: Works without internet, auto-syncs when connected
-- ✅ **Digital Checklist**: 19-item standardized inspection checklist
-- ✅ **Smart Issue Reporting**: Auto-populated fields from checklist
-- ✅ **Image Upload**: Up to 10 images per issue (auto-compressed to ~300KB)
-- ✅ **Auto-Save**: Saves every 10 seconds
-- ✅ **6 PM Deadline**: Form locks automatically (15-min grace period)
-- ✅ **Simple Login**: Just Marshal ID + Name (no complex auth)
-
-### 👨‍💼 For Admin
-- ✅ **Post-6PM Access Only**: Clean daily review workflow
-- ✅ **Email Notification**: Automatic summary at 6 PM
-- ✅ **One-Click Toggle**: Approve/deny with instant save
-- ✅ **Floor Coverage Alerts**: Visual warnings for unchecked floors
-- ✅ **Image Gallery**: Lightbox viewer for Supabase Storage images
-- ✅ **Report Generation**: One-click PDF + Excel download
-- ✅ **Auto-Email**: Send reports to director instantly
-
-### 👔 For Director
-- ✅ **Professional Reports**: PDF (visual) + Excel (filterable)
-- ✅ **Structured Data**: Consistent format daily
-- ✅ **Clickable Image Links**: View full-resolution photos
-- ✅ **Guaranteed Delivery**: Email sent even with zero issues
-- ✅ **Small Attachments**: <5MB email size (images stored separately)
-
-### ♻️ Auto-Cleanup System
-- ✅ **2-Day Data Retention**: All reports automatically cleared after 48 hours
-- ✅ **Storage Optimization**: Images + database records deleted automatically
-- ✅ **Analytics Preservation**: Aggregated analytics kept permanently
-- ✅ **Daily Cron Job**: Runs at 2 AM IST automatically
+The form auto-saves every 10 seconds so progress is not lost if the browser is closed. If the device goes offline, the submission is queued and sent automatically when the connection is restored. The form locks at 6:15 PM after a 15-minute grace period.
 
 ---
 
-## 🛠️ Tech Stack
+### Admin
 
-| Component | Technology | Why |
-|-----------|------------|-----|
-| **Frontend** | Next.js 14 (App Router), React 18, TypeScript | Modern React framework with SSR |
-| **Styling** | Tailwind CSS | Rapid UI development |
-| **PWA** | next-pwa | Offline capability, installable app |
-| **Database** | Supabase PostgreSQL | Free tier, RLS, real-time |
-| **Storage** | Supabase Storage | Free 1GB storage, CDN delivery |
-| **Auth** | Supabase Auth | Built-in security, session management |
-| **PDF** | PDFKit | Server-side PDF generation (Node.js compatible) |
-| **Excel** | ExcelJS | Professional spreadsheet generation |
-| **Deployment** | Vercel | Free tier, automatic deployments |
-| **Email** | Nodemailer + Gmail SMTP | Free email delivery |
-| **Cleanup** | Vercel Cron Jobs | Automated daily cleanup |
+Admins access the dashboard after the 6:00 PM deadline to review the day's submissions.
+
+1. Log in at the admin login page with an email and password
+2. View the floor coverage alert which highlights any blocks or floors that were not inspected
+3. Browse all submitted issues filtered by status or block
+4. Approve or deny each issue using the quick action buttons on each card
+5. View photos attached to issues directly in the dashboard gallery
+6. Generate a PDF and Excel report for the day, either downloading it directly or emailing it to the director
+7. View analytics including top issue types, most problematic locations, and marshal activity over the past 30 days
 
 ---
 
-## 📋 Prerequisites
+### Director
 
-✅ **Required**:
-- Node.js 18+ installed ([Download](https://nodejs.org))
-- Supabase account ([Sign up free](https://supabase.com))
-- Vercel account ([Sign up free](https://vercel.com))
-- Gmail account (for SMTP)
+The director receives an automated email every day at 6:00 PM with two attachments:
 
-⚠️ **Recommended**:
-- Git installed
-- VS Code or similar editor
-- Basic terminal/command line knowledge
+- A PDF report with a professional summary, executive statistics, and tables of all approved and denied issues
+- An Excel spreadsheet with the same data in a filterable format across four sheets: Summary, All Issues, Approved Issues, and Denied Issues
+
+No login or action is required from the director. The report is delivered automatically as long as at least one issue was submitted that day.
 
 ---
 
-## ⚡ Quick Start Guide
+## Automated Tasks
 
-### Step 1: Clone & Install
-```bash
-git clone https://github.com/your-org/mahe-facility-system.git
-cd mahe-facility-system
-npm install
+Two scheduled tasks run daily without any manual intervention:
 
-: Step 2: Set Up Supabase (See next section)
-Create Supabase project
-Run database schema
-Create storage bucket
-Create admin user
+- **6:00 PM IST** — Generates and emails the daily report to the director
+- **2:00 AM IST** — Cleans up data older than 48 hours including issues, checklist responses, floor coverage records, and stored images. Marshal activity statistics are preserved permanently before deletion to power the admin analytics chart.
 
-: Step 3: Configure Environment
+---
 
-cp .env.example .env.local
-# Edit .env.local with your credentials (see SMTP section below)
+## Blocks and Floors
 
-:  Step 4: Run Development Server
-npm run dev
+The system covers five academic blocks:
+
+| Block | Floors |
+|-------|--------|
+| AB1   | 0, 1, 2, 3, 4, 5 |
+| AB2   | 1, 2, 3, 4, 5, 6 |
+| AB3   | 1, 2, 3, 4, 5, 6 |
+| AB4   | 1, 2, 3, 4, 5, 6 |
+| AB5   | 1, 2, 3, 4, 5, 6 |
+
+---
+
+## Deployment
+
+The project is deployed on Vercel and connected to the GitHub repository. Any push to the `main` branch automatically triggers a redeployment. Environment variables are managed separately in the Vercel dashboard and require a manual redeploy when changed.
+
+---
+
+## Data Retention
+
+Raw issue and inspection data is kept for 48 hours. Images stored in Supabase Storage follow the same retention window. Aggregated analytics and marshal registry data are retained permanently and are not affected by the nightly cleanup.

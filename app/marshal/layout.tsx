@@ -6,33 +6,70 @@ export default function MarshalLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl font-bold">M</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-black">Marshal Portal</h1>
-                <p className="text-sm text-gray-700">MAHE Facility Inspection</p>
-              </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F5F0EA' }}>
+      <header style={{
+        backgroundColor: 'rgba(255, 252, 247, 0.97)',
+        borderBottom: '1px solid rgba(180, 101, 30, 0.12)',
+        backdropFilter: 'blur(8px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+      }}>
+        <div style={{
+          maxWidth: '860px',
+          margin: '0 auto',
+          padding: '16px 32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              backgroundColor: '#B4651E',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(180, 101, 30, 0.3)',
+            }}>
+              <span style={{ color: 'white', fontWeight: '700', fontSize: '1.1rem' }}>M</span>
             </div>
-            
-            <Link
-              href="/"
-              className="px-4 py-2 text-sm font-medium text-black hover:text-gray-700"
-            >
-              Home
-            </Link>
+            <div>
+              <h1 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                color: '#1a1208',
+                margin: 0,
+              }}>
+                Marshal Portal
+              </h1>
+              <p style={{ fontSize: '0.72rem', color: '#7a6a55', margin: 0 }}>
+                MAHE Facility Inspection
+              </p>
+            </div>
           </div>
+
+          <Link href="/" style={{
+            fontSize: '0.875rem',
+            color: '#7a6a55',
+            textDecoration: 'none',
+            fontWeight: '500',
+          }}>
+            Home
+          </Link>
         </div>
       </header>
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+      <div style={{
+        maxWidth: '860px',
+        margin: '0 auto',
+        padding: '32px 32px 80px',
+      }}>
         {children}
-      </main>
+      </div>
     </div>
   )
 }
