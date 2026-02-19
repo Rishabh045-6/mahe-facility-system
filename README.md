@@ -2,6 +2,9 @@
 
 A web-based facility inspection and reporting system for Manipal Academy of Higher Education. Built to replace manual WhatsApp and paper-based workflows with a structured digital process. Marshals submit daily inspection reports, admins review and action them, and the director receives an automated summary every evening.
 
+Link:
+https://mahe-fac-fys.vercel.app/
+
 ---
 
 ## Tech Stack
