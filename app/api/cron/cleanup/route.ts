@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Calculate cutoff date (48 hours ago)
-    const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000)
+    // Calculate cutoff date (120 hours ago)
+    const cutoffDate = new Date(Date.now() - 120 * 60 * 60 * 1000)
     const cutoffDateStr = cutoffDate.toISOString().split('T')[0]
 
     console.log(`🧹 Starting AUTO-CLEANUP for data older than ${cutoffDateStr}...`)

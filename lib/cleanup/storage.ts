@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 export class StorageCleanup {
   private static STORAGE_BUCKET = 'facility-images'
 
-  static async cleanupOldImages(daysOld: number = 30): Promise<void> {
+  static async cleanupOldImages(daysOld: number = 5): Promise<void> {
     const supabase = await createClient()
     try {
       const cutoffDate = new Date()
