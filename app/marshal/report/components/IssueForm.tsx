@@ -293,7 +293,7 @@ export default function IssueForm({
                         <option value="">Select issue type</option>
                         {Object.entries(ISSUE_TYPES).map(([category, types]) => (
                           <optgroup key={category} label={category}>
-                            {(types as string[]).map((type) => {
+                            {(types as readonly string[]).map((type) => {
                               const value = type === category ? category : `${category} - ${type}`
                               const label = type === category ? category : type
                               return (
