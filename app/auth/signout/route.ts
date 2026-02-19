@@ -10,5 +10,5 @@ export async function POST(request: Request) {
   // Options:
   //   - '/' = Home page (recommended)
   //   - '/admin-login' = Admin login page
-  return NextResponse.redirect(new URL('/', request.url))
+  return NextResponse.redirect(new URL('/admin-login', request.url), { status: 303 })
 }
