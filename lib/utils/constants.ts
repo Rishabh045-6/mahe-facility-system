@@ -1,11 +1,8 @@
-export const BLOCKS = ['AB1', 'AB2', 'AB3', 'AB4', 'AB5'] as const
+export const BLOCKS = ['AB4', 'AB5'] as const
 export type Block = typeof BLOCKS[number]
 
 // Floor configurations per block
 export const FLOOR_CONFIG: Record<Block, readonly string[]> = {
-  AB1: ['0', '1', '2', '3', '4', '5'],
-  AB2: ['1', '2', '3', '4', '5', '6'],
-  AB3: ['1', '2', '3', '4', '5', '6'],
   AB4: ['1', '2', '3', '4', '5', '6'],
   AB5: ['1', '2', '3', '4', '5', '6'],
 } as const
@@ -26,10 +23,10 @@ export const ISSUE_TYPES = {
 } as const
 
 export const CHECKLIST_CATEGORIES = [
-  'Daily Observations',
   'Classroom/Lab Upkeep',
   'Washroom & Utility',
-  'Maintenance/Snag'
+  'Maintenance/Snag',
+  'Daily Observations'
 ] as const
 
 export const CHECKLIST_ITEMS = [

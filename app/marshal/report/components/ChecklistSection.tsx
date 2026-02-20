@@ -16,10 +16,10 @@ export default function ChecklistSection({
   disabled = false,
 }: ChecklistSectionProps) {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    'Daily Observations': true,
-    'Classroom/Lab Upkeep': false,
+    'Classroom/Lab Upkeep': true,
     'Washroom & Utility': false,
     'Maintenance/Snag': false,
+    'Daily Observations': false,
   })
 
   const toggleCategory = (category: string) => {
