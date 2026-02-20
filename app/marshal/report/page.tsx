@@ -12,6 +12,7 @@ import ChecklistSection from './components/ChecklistSection'
 import IssueForm from './components/IssueForm'
 import ImageUploader from './components/ImageUploader'
 import SubmissionSummary from './components/SubmissionSummary'
+import RoomFeatureGuide from './components/RoomFeatureGuide'
 
 const card: React.CSSProperties = {
   backgroundColor: 'rgba(255, 252, 247, 0.95)',
@@ -311,6 +312,13 @@ export default function MarshalReportPage() {
             disabled={formLocked}
           />
         </div>
+
+        {/* Room defaults from printed checklist */}
+        {block && floor && (
+          <div style={card}>
+            <RoomFeatureGuide block={block} floor={floor} />
+          </div>
+        )}
 
         {/* Checklist */}
         <div style={card}>

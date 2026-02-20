@@ -26,39 +26,38 @@ export const ISSUE_TYPES = {
 } as const
 
 export const CHECKLIST_CATEGORIES = [
-  'Daily Observations',
   'Classroom/Lab Upkeep',
   'Washroom & Utility',
-  'Maintenance/Snag'
+  'Maintenance/Snag',
+  'Daily Observations'
 ] as const
 
 export const CHECKLIST_ITEMS = [
-  // Daily Observations
-  { id: 1, category: 'Daily Observations', text: 'All classrooms cleaned before 8:30 AM' },
-  { id: 2, category: 'Daily Observations', text: 'Corridors, staircases, and lobbies mopped and dry' },
-  { id: 3, category: 'Daily Observations', text: 'Dustbins cleaned and placed properly' },
-  { id: 4, category: 'Daily Observations', text: 'Janitor room arranged and soft door closed' },
-  { id: 5, category: 'Daily Observations', text: 'Washrooms cleaned (check every 2-3 hrs)' },
-  { id: 6, category: 'Daily Observations', text: 'Mirrors, taps, and floor in washrooms cleaned' },
-  { id: 7, category: 'Daily Observations', text: 'Fire extinguishers available and valid' },
-  { id: 8, category: 'Daily Observations', text: 'No obstruction near exits or corridors' },
-  
-  // Classroom/Lab Upkeep
-  { id: 9, category: 'Classroom/Lab Upkeep', text: 'Furniture arranged properly' },
-  { id: 10, category: 'Classroom/Lab Upkeep', text: 'Fans, lights, and projectors working' },
-  { id: 11, category: 'Classroom/Lab Upkeep', text: 'Windows, notice boards, and whiteboards cleaned' },
-  { id: 12, category: 'Classroom/Lab Upkeep', text: 'No posters or stickers on walls' },
-  { id: 13, category: 'Classroom/Lab Upkeep', text: 'Any maintenance issue reported' },
-  
-  // Washroom & Utility
-  { id: 14, category: 'Washroom & Utility', text: 'Sufficient hand wash and tissue rolls available' },
-  { id: 15, category: 'Washroom & Utility', text: 'Plumbing/leakage issues noted' },
-  { id: 16, category: 'Washroom & Utility', text: 'Restroom door locks and lights working' },
-  
-  // Maintenance/Snag
-  { id: 17, category: 'Maintenance/Snag', text: 'Daily snag list prepared and sent' },
-  { id: 18, category: 'Maintenance/Snag', text: 'Follow-up on pending complaints' },
-  { id: 19, category: 'Maintenance/Snag', text: 'Electrical and plumbing items checked' },
+  // Classroom/Lab Upkeep (1–5)
+  { id: 1, category: 'Classroom/Lab Upkeep', text: 'Furniture arranged properly' },
+  { id: 2, category: 'Classroom/Lab Upkeep', text: 'Fans, lights, and projectors working' },
+  { id: 3, category: 'Classroom/Lab Upkeep', text: 'Windows, notice boards, and whiteboards cleaned' },
+  { id: 4, category: 'Classroom/Lab Upkeep', text: 'No posters or stickers on walls' },
+  { id: 5, category: 'Classroom/Lab Upkeep', text: 'Any maintenance issue reported' },
+
+  // Washroom & Utility (6–8)
+  { id: 6, category: 'Washroom & Utility', text: 'Sufficient hand wash and tissue rolls available' },
+  { id: 7, category: 'Washroom & Utility', text: 'Plumbing/leakage issues noted' },
+  { id: 8, category: 'Washroom & Utility', text: 'Restroom door locks and lights working' },
+
+  // Maintenance/Snag (9–10)
+  { id: 9, category: 'Maintenance/Snag', text: 'Daily snag list prepared and sent' },
+  { id: 10, category: 'Maintenance/Snag', text: 'Follow-up on pending complaints' },
+
+  // Daily Observations (11–18)
+  { id: 11, category: 'Daily Observations', text: 'All classrooms cleaned before 8:30 AM' },
+  { id: 12, category: 'Daily Observations', text: 'Corridors, staircases, and lobbies mopped and dry' },
+  { id: 13, category: 'Daily Observations', text: 'Dustbins cleaned and placed properly' },
+  { id: 14, category: 'Daily Observations', text: 'Janitor room arranged and soft door closed' },
+  { id: 15, category: 'Daily Observations', text: 'Washrooms cleaned (check every 2-3 hrs)' },
+  { id: 16, category: 'Daily Observations', text: 'Mirrors, taps, and floor in washrooms cleaned' },
+  { id: 17, category: 'Daily Observations', text: 'Fire extinguishers available and valid' },
+  { id: 18, category: 'Daily Observations', text: 'No obstruction near exits or corridors' },
 ] as const
 
 // Time constraints
