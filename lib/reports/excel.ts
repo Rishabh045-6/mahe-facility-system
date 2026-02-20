@@ -15,8 +15,21 @@ interface Issue {
   reported_at: string
 }
 
+interface RoomInspection {
+  id: string
+  block: string
+  floor: string
+  room_number: string
+  feature_data: Record<string, string>
+  has_issues: boolean
+  marshal_id: string
+  marshal_name?: string
+  date: string
+}
+
 interface ExcelData {
   issues: Issue[]
+  roomInspections?: RoomInspection[]
   date: string
 }
 
@@ -37,7 +50,7 @@ const COLORS = {
 }
 
 export async function generateExcel(data: ExcelData, date: string): Promise<Buffer> {
-  const { issues } = data
+  const { issues, roomInspections = [] } = data
   const approvedIssues = issues.filter(i => i.status === 'approved')
   const deniedIssues = issues.filter(i => i.status === 'denied')
 
@@ -88,6 +101,7 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
   summarySheet.mergeCells('A5:E5')
 
   const statRows = [
+    ['Total Room Inspections', roomInspections.length],
     ['Total Issues Reported', issues.length],
     ['Approved Issues', approvedIssues.length],
     ['Denied Issues', deniedIssues.length],
@@ -122,7 +136,7 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
     applyBorder(cell)
   })
 
-  const blocks = ['AB1', 'AB2', 'AB3', 'AB4', 'AB5']
+  const blocks = Array.from(new Set([...issues.map(i => i.block), ...roomInspections.map(r => r.block)])).sort()
   blocks.forEach((block, idx) => {
     const blockIssues = issues.filter(i => i.block === block)
     const row = summarySheet.addRow([
@@ -160,6 +174,13 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
   // ============================================
   const deniedSheet = workbook.addWorksheet('Denied Issues')
   setupIssueSheet(deniedSheet, deniedIssues, 'Denied Issues', COLORS.danger)
+
+
+  // ============================================
+  // SHEET 5: ROOM INSPECTIONS
+  // ============================================
+  const roomSheet = workbook.addWorksheet('Room Inspections')
+  setupRoomInspectionSheet(roomSheet, roomInspections)
 
   // Write to buffer
   const arrayBuffer = await workbook.xlsx.writeBuffer()
@@ -274,6 +295,69 @@ function setupIssueSheet(
   }
 
   // Freeze top 2 rows
+  sheet.views = [{ state: 'frozen', ySplit: 2 }]
+}
+
+
+function setupRoomInspectionSheet(sheet: ExcelJS.Worksheet, roomInspections: RoomInspection[]) {
+  sheet.columns = [
+    { key: 'no', width: 5 },
+    { key: 'block', width: 8 },
+    { key: 'floor', width: 8 },
+    { key: 'room', width: 12 },
+    { key: 'marshal', width: 20 },
+    { key: 'has_issues', width: 12 },
+    { key: 'features', width: 85 },
+  ]
+
+  const titleRow = sheet.addRow(['ROOM INSPECTIONS'])
+  sheet.mergeCells('A1:G1')
+  titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: COLORS.headerText } }
+  titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryDark } }
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+
+  const headerRow = sheet.addRow(['#', 'Block', 'Floor', 'Room', 'Marshal', 'Has Issues', 'Feature Values'])
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 9, color: { argb: COLORS.headerText } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primary } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    applyBorder(cell)
+  })
+
+  if (roomInspections.length === 0) {
+    const row = sheet.addRow(['No room inspections found.'])
+    sheet.mergeCells('A3:G3')
+    row.getCell(1).alignment = { horizontal: 'center' }
+    row.getCell(1).font = { italic: true, color: { argb: COLORS.subtext } }
+    return
+  }
+
+  roomInspections.forEach((inspection, index) => {
+    const featureText = Object.entries(inspection.feature_data || {})
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(' | ')
+
+    const row = sheet.addRow([
+      index + 1,
+      inspection.block,
+      `Floor ${inspection.floor}`,
+      inspection.room_number,
+      inspection.marshal_name || inspection.marshal_id,
+      inspection.has_issues ? 'Yes' : 'No',
+      featureText,
+    ])
+
+    row.eachCell((cell, colNum) => {
+      cell.font = { size: 9 }
+      cell.alignment = { vertical: 'middle', wrapText: colNum === 7 }
+      if (index % 2 === 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowAlt } }
+      }
+      applyBorder(cell)
+    })
+    row.height = 22
+  })
+
   sheet.views = [{ state: 'frozen', ySplit: 2 }]
 }
 

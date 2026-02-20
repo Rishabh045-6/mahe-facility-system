@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, XCircle, AlertTriangle, Clock, Save, Send } from 'lucide-react'
+import { AlertTriangle, Clock, Save, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { offlineQueue } from '@/lib/offline/queue'
 import { isBeforeDeadline, shouldLockForm, getTimeRemaining } from '@/lib/utils/time'
 import { MAX_IMAGES_PER_ISSUE } from '@/lib/utils/constants'
 import BlockFloorSelector from './components/BlockFloorSelector'
 import ChecklistSection from './components/ChecklistSection'
-import IssueForm from './components/IssueForm'
 import ImageUploader from './components/ImageUploader'
 import SubmissionSummary from './components/SubmissionSummary'
+import RoomInspectionSection, { RoomInspection } from './components/RoomInspectionSection'
 
 const card: React.CSSProperties = {
   backgroundColor: 'rgba(255, 252, 247, 0.95)',
@@ -31,8 +31,7 @@ export default function MarshalReportPage() {
   const [block, setBlock] = useState<string>('')
   const [floor, setFloor] = useState<string>('')
   const [checklistResponses, setChecklistResponses] = useState<Record<string, boolean>>({})
-  const [hasIssues, setHasIssues] = useState<boolean | null>(null)
-  const [issues, setIssues] = useState<any[]>([])
+  const [roomInspections, setRoomInspections] = useState<RoomInspection[]>([])
   const [images, setImages] = useState<File[]>([])
   const [isAutoSaving, setIsAutoSaving] = useState(false)
 
@@ -66,12 +65,12 @@ export default function MarshalReportPage() {
       }, 10000)
       return () => clearInterval(autoSaveInterval)
     }
-  }, [block, floor, checklistResponses, hasIssues, issues, images])
+  }, [block, floor, checklistResponses, roomInspections, images])
 
   const handleAutoSave = () => {
     const draft = {
       marshalId, block, floor, checklistResponses,
-      hasIssues, issues, imagesCount: images.length,
+      roomInspections, imagesCount: images.length,
       timestamp: new Date().toISOString(),
     }
     localStorage.setItem('marshalDraft', JSON.stringify(draft))
@@ -85,36 +84,45 @@ export default function MarshalReportPage() {
         setBlock(draft.block || '')
         setFloor(draft.floor || '')
         setChecklistResponses(draft.checklistResponses || {})
-        setHasIssues(draft.hasIssues)
-        setIssues(draft.issues || [])
+        setRoomInspections(draft.roomInspections || [])
       }
     }
   }, [marshalId])
 
   const clearDraft = () => localStorage.removeItem('marshalDraft')
 
+
+  const flattenedIssues = roomInspections.flatMap((inspection) => (
+    inspection.hasIssues
+      ? inspection.issues
+          .filter((issue) => issue.issue_type && issue.description && issue.description.length >= 10)
+          .map((issue) => ({
+            issue_type: issue.issue_type,
+            description: issue.description,
+            is_movable: issue.is_movable,
+            room_location: `Room ${inspection.room}`,
+          }))
+      : []
+  ))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formLocked) { toast.error('Submission deadline has passed (6:00 PM)'); return }
     if (!block || !floor) { toast.error('Please select Block and Floor'); return }
     if (Object.keys(checklistResponses).length === 0) { toast.error('Please complete the checklist'); return }
-    if (hasIssues === null) { toast.error('Please indicate if you found any issues'); return }
-    if (hasIssues && (!issues || issues.length === 0)) { toast.error('Please add at least one issue'); return }
-    if (hasIssues && issues) {
-      const invalidIssues = issues.filter(i => !i.issue_type || !i.description || i.description.length < 10)
-      if (invalidIssues.length > 0) { toast.error('Please complete all required fields for issue(s)'); return }
-    }
+    const roomIssueSelectionsMissing = roomInspections.some((room) => room.hasIssues === null)
+    if (roomIssueSelectionsMissing) { toast.error('Please mark issue status for all rooms you reviewed'); return }
 
     setIsSubmitting(true)
 
     try {
       let uploadedImagePaths: string[] = []
-      if (hasIssues && images.length > 0) {
+      if (flattenedIssues.length > 0 && images.length > 0) {
         try {
           const { uploadImages } = await import('@/lib/storage/upload')
           const tempIssueId = `temp-${Date.now()}`
           uploadedImagePaths = await uploadImages(images, block, tempIssueId)
-        } catch (uploadError: any) {
+        } catch {
           toast.error('Image upload failed. Submitting without images.')
         }
       }
@@ -125,14 +133,12 @@ export default function MarshalReportPage() {
         block,
         floor,
         checklist_responses: checklistResponses,
-        has_issues: hasIssues || false,
-        issues: hasIssues && issues ? issues.map((issue) => ({
-          issue_type: issue.issue_type,
-          description: issue.description,
-          is_movable: issue.is_movable,
-          room_location: issue.room_location || undefined,
+        has_issues: flattenedIssues.length > 0,
+        room_inspections: roomInspections,
+        issues: flattenedIssues.map((issue) => ({
+          ...issue,
           images: uploadedImagePaths,
-        })) : undefined,
+        })),
         submitted_at: new Date().toISOString(),
       }
 
@@ -157,31 +163,27 @@ export default function MarshalReportPage() {
         setBlock('')
         setFloor('')
         setChecklistResponses({})
-        setHasIssues(null)
-        setIssues([])
+        setRoomInspections([])
         setImages([])
         setIsSubmitting(false)
       }, 2000)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (!navigator.onLine) {
         offlineQueue?.addToQueue('issue', {
           marshal_id: marshalId,
           marshal_name: marshalName,
           block, floor,
           checklist_responses: checklistResponses,
-          has_issues: hasIssues || false,
-          issues: hasIssues && issues ? issues.map(i => ({
-            issue_type: i.issue_type,
-            description: i.description,
-            is_movable: i.is_movable,
-            room_location: i.room_location || undefined,
-          })) : undefined,
+          has_issues: flattenedIssues.length > 0,
+          room_inspections: roomInspections,
+          issues: flattenedIssues,
         })
         toast.success('Report queued for submission when online')
         clearDraft()
       } else {
-        toast.error(error.message || 'Failed to submit report')
+        const errorMessage = error instanceof Error ? error.message : 'Failed to submit report'
+        toast.error(errorMessage)
       }
       setIsSubmitting(false)
     }
@@ -189,20 +191,6 @@ export default function MarshalReportPage() {
 
   const handleChecklistChange = (itemId: string, response: boolean) => {
     setChecklistResponses(prev => ({ ...prev, [itemId]: response }))
-  }
-
-  const addIssue = () => {
-    setIssues(prev => [...prev, {
-      id: Date.now(), issue_type: '', description: '', is_movable: false, room_location: '',
-    }])
-  }
-
-  const updateIssue = (id: number, field: string, value: any) => {
-    setIssues(prev => prev.map(issue => issue.id === id ? { ...issue, [field]: value } : issue))
-  }
-
-  const removeIssue = (id: number) => {
-    setIssues(prev => prev.filter(issue => issue.id !== id))
   }
 
   const handleImageUpload = (files: File[]) => {
@@ -312,6 +300,12 @@ export default function MarshalReportPage() {
           />
         </div>
 
+        {block && floor && (
+          <div style={card}>
+            <RoomInspectionSection key={`${block}-${floor}`} block={block} floor={floor} onChange={setRoomInspections} disabled={formLocked} />
+          </div>
+        )}
+
         {/* Checklist */}
         <div style={card}>
           <ChecklistSection
@@ -321,103 +315,8 @@ export default function MarshalReportPage() {
           />
         </div>
 
-        {/* Issue Declaration */}
-        <div style={card}>
-          <h3 style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: '1.15rem',
-            fontWeight: '600',
-            color: '#1a1208',
-            margin: '0 0 8px',
-          }}>
-            Issue Declaration
-          </h3>
-          <p style={{ color: '#7a6a55', fontSize: '0.9rem', margin: '0 0 20px' }}>
-            Did you find any issues during your inspection?
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <button
-              type="button"
-              onClick={() => setHasIssues(true)}
-              disabled={formLocked}
-              style={{
-                padding: '20px',
-                borderRadius: '12px',
-                border: hasIssues === true
-                  ? '2px solid #B4651E'
-                  : '2px solid rgba(180, 101, 30, 0.15)',
-                backgroundColor: hasIssues === true ? '#fdf6ef' : 'transparent',
-                cursor: formLocked ? 'not-allowed' : 'pointer',
-                opacity: formLocked ? 0.5 : 1,
-                textAlign: 'left',
-                transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle2
-                  size={24}
-                  color={hasIssues === true ? '#B4651E' : '#c4b5a0'}
-                />
-                <span style={{
-                  fontWeight: '600',
-                  color: hasIssues === true ? '#B4651E' : '#7a6a55',
-                  fontSize: '0.95rem',
-                }}>
-                  Yes, I found issues
-                </span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setHasIssues(false)}
-              disabled={formLocked}
-              style={{
-                padding: '20px',
-                borderRadius: '12px',
-                border: hasIssues === false
-                  ? '2px solid #16a34a'
-                  : '2px solid rgba(180, 101, 30, 0.15)',
-                backgroundColor: hasIssues === false ? '#f0fdf4' : 'transparent',
-                cursor: formLocked ? 'not-allowed' : 'pointer',
-                opacity: formLocked ? 0.5 : 1,
-                textAlign: 'left',
-                transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <XCircle
-                  size={24}
-                  color={hasIssues === false ? '#16a34a' : '#c4b5a0'}
-                />
-                <span style={{
-                  fontWeight: '600',
-                  color: hasIssues === false ? '#16a34a' : '#7a6a55',
-                  fontSize: '0.95rem',
-                }}>
-                  No issues found
-                </span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Issues Form */}
-        {hasIssues && (
-          <div style={card}>
-            <IssueForm
-              issues={issues}
-              onAddIssue={addIssue}
-              onUpdateIssue={updateIssue}
-              onRemoveIssue={removeIssue}
-              disabled={formLocked}
-            />
-          </div>
-        )}
-
         {/* Image Uploader */}
-        {hasIssues && (
+        {flattenedIssues.length > 0 && (
           <div style={card}>
             <ImageUploader
               images={images}
@@ -434,7 +333,7 @@ export default function MarshalReportPage() {
             block={block}
             floor={floor}
             checklistCount={Object.keys(checklistResponses).length}
-            issueCount={issues.length}
+            issueCount={flattenedIssues.length}
             imageCount={images.length}
           />
         </div>

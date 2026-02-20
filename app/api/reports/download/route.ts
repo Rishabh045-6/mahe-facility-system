@@ -6,7 +6,7 @@ import { generateExcel } from '@/lib/reports/excel'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
@@ -25,14 +25,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!issues || issues.length === 0) {
+    type RoomInspectionRow = Record<string, unknown>
+    let roomInspections: RoomInspectionRow[] = []
+    const roomResponse = await supabase
+      .from('room_inspections')
+      .select('*')
+      .eq('date', today)
+      .order('block')
+      .order('floor')
+      .order('room_number')
+
+    if (!roomResponse.error) {
+      roomInspections = roomResponse.data || []
+    }
+
+    if ((!issues || issues.length === 0) && roomInspections.length === 0) {
       return NextResponse.json(
-        { error: 'No issues', message: 'No issues reported today.' },
+        { error: 'No reports', message: 'No room inspections or issues reported today.' },
         { status: 400 }
       )
     }
 
-    const reportData = { issues, date: today }
+    const reportData = { issues: issues || [], roomInspections, date: today }
 
     const [pdfBuffer, excelBuffer] = await Promise.all([
       generatePDF(reportData, today),
@@ -45,14 +59,12 @@ export async function POST(request: NextRequest) {
       pdf: pdfBuffer.toString('base64'),
       excel: excelBuffer.toString('base64'),
     })
-
-  } catch (error: any) {
-    console.error('Error in /api/reports/download:', error)
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: error.message ?? 'Unknown error',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined,
       },
       { status: 500 }
     )

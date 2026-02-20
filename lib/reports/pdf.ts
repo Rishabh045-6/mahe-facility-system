@@ -15,8 +15,19 @@ interface Issue {
   reported_at: string
 }
 
+interface RoomInspection {
+  block: string
+  floor: string
+  room_number: string
+  feature_data: Record<string, string>
+  has_issues: boolean
+  marshal_id: string
+  marshal_name?: string
+}
+
 interface PDFData {
   issues: Issue[]
+  roomInspections?: RoomInspection[]
   date: string
 }
 
@@ -33,7 +44,7 @@ const MAHE_COLORS = {
 }
 
 export async function generatePDF(data: PDFData, date: string): Promise<Buffer> {
-  const { issues } = data
+  const { issues, roomInspections = [] } = data
   const approvedIssues = issues.filter(i => i.status === 'approved')
   const deniedIssues = issues.filter(i => i.status === 'denied')
 
@@ -86,10 +97,10 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
     // ============================================
     // EXECUTIVE SUMMARY BOX
     // ============================================
-    doc.rect(40, yPos, 515, 100)
+    doc.rect(40, yPos, 515, 128)
        .fillColor('#f8fafc')
        .fill()
-    doc.rect(40, yPos, 515, 100)
+    doc.rect(40, yPos, 515, 128)
        .strokeColor('#e2e8f0')
        .stroke()
 
@@ -99,6 +110,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
        .text('EXECUTIVE SUMMARY', 55, yPos + 12)
 
     const summaryData = [
+      { label: 'Total Room Inspections', value: roomInspections.length.toString() },
       { label: 'Total Issues Reported', value: issues.length.toString() },
       {
         label: 'Approved Issues',
@@ -131,7 +143,7 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
          .text(item.value, x, y + 11)
     })
 
-    yPos += 115
+    yPos += 143
 
     // ============================================
     // HELPER: Draw table header row
@@ -185,6 +197,63 @@ export async function generatePDF(data: PDFData, date: string): Promise<Buffer> 
          .text(issue.marshal_name || issue.marshal_id, 480, y + 5, { width: 70 })
 
       return y + 36
+    }
+
+
+    // ============================================
+    // ROOM INSPECTIONS SECTION
+    // ============================================
+    if (roomInspections.length > 0) {
+      if (yPos > 700) { doc.addPage(); yPos = 40 }
+
+      doc.fontSize(13)
+         .font('Helvetica-Bold')
+         .fillColor(MAHE_COLORS.secondary)
+         .text(`ROOM INSPECTIONS (${roomInspections.length})`, 40, yPos)
+
+      yPos += 18
+
+      doc.rect(40, yPos, 515, 22)
+         .fillColor(MAHE_COLORS.secondary)
+         .fill()
+
+      doc.fontSize(8)
+         .font('Helvetica-Bold')
+         .fillColor('#ffffff')
+         .text('Location', 48, yPos + 7, { width: 140 })
+         .text('Room', 190, yPos + 7, { width: 45 })
+         .text('Has Issues', 240, yPos + 7, { width: 60 })
+         .text('Marshal', 305, yPos + 7, { width: 95 })
+         .text('Feature Snapshot', 405, yPos + 7, { width: 145 })
+
+      yPos += 22
+
+      roomInspections.forEach((inspection, index) => {
+        if (yPos > 760) { doc.addPage(); yPos = 40 }
+
+        if (index % 2 === 0) {
+          doc.rect(40, yPos, 515, 34).fillColor('#eff6ff').fill()
+        }
+        doc.rect(40, yPos, 515, 34).strokeColor('#e5e7eb').lineWidth(0.5).stroke()
+
+        const featurePreview = Object.entries(inspection.feature_data || {})
+          .slice(0, 3)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(' | ')
+
+        doc.fontSize(8)
+          .font('Helvetica')
+          .fillColor(MAHE_COLORS.text)
+          .text(`${inspection.block} / F${inspection.floor}`, 48, yPos + 5, { width: 138 })
+          .text(inspection.room_number, 190, yPos + 5, { width: 45 })
+          .text(inspection.has_issues ? 'Yes' : 'No', 240, yPos + 5, { width: 60 })
+          .text(inspection.marshal_name || inspection.marshal_id, 305, yPos + 5, { width: 95 })
+          .text(featurePreview, 405, yPos + 5, { width: 145, height: 25 })
+
+        yPos += 34
+      })
+
+      yPos += 16
     }
 
     // ============================================
