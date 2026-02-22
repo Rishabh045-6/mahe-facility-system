@@ -1,3 +1,4 @@
+// app/marshal/report/components/SaveIssueButton.tsx
 'use client'
 
 import React, { useState } from 'react'
@@ -53,26 +54,51 @@ export function SaveIssueButton({
     }
   }
 
+  const isDisabledState = disabled || isSaving
+
   return (
     <button
       type="button"
       onClick={handleSave}
-      disabled={disabled || isSaving}
-      className={`
-        font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 
-        transition-all duration-200
-        ${showSuccess ? 'bg-green-600 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white hover:shadow-lg'}
-        ${(disabled || isSaving) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-      `}
+      disabled={isDisabledState}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        padding: '10px 18px',
+        borderRadius: '10px',
+        border: 'none',
+        backgroundColor: showSuccess ? '#16a34a' : '#B4651E',
+        color: 'white',
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        fontFamily: "'DM Sans', sans-serif",
+        cursor: isDisabledState ? 'not-allowed' : 'pointer',
+        opacity: isDisabledState ? 0.5 : 1,
+        transition: 'background-color 0.2s, opacity 0.2s',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!isDisabledState) {
+          e.currentTarget.style.backgroundColor = showSuccess ? '#15803d' : '#8f4e16'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isDisabledState) {
+          e.currentTarget.style.backgroundColor = showSuccess ? '#16a34a' : '#B4651E'
+        }
+      }}
     >
       {showSuccess ? (
         <>
-          <CheckCircle className="w-5 h-5" />
+          <CheckCircle size={16} />
           Saved!
         </>
       ) : (
         <>
-          <Save className="w-5 h-5" />
+          <Save size={16} />
           {isSaving ? 'Saving...' : 'Save Issue'}
         </>
       )}

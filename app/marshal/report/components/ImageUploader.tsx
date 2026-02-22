@@ -1,6 +1,7 @@
+// app/marshal/report/components/ImageUploader.tsx
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Image as ImageIcon, X, Upload as UploadIcon, Camera } from 'lucide-react'
 import { MAX_IMAGES_PER_ISSUE } from '@/lib/utils/constants'
 
@@ -19,7 +20,21 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // FIX: Maintain stable preview URLs, creating them once per images array change
+  // and revoking old ones to prevent memory leaks.
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
+
+  useEffect(() => {
+    // Create new object URLs for all current images
+    const urls = images.map((file) => URL.createObjectURL(file))
+    setPreviewUrls(urls)
+
+    // Cleanup: revoke all URLs when images change or component unmounts
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [images]) // Re-run only when the images array changes
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -27,15 +42,13 @@ export default function ImageUploader({
     setCompressing(true)
     try {
       const fileArray = Array.from(files)
-      const validFiles = fileArray.filter(file =>
-        file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
+      const validFiles = fileArray.filter(
+        (file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
       )
       if (validFiles.length < fileArray.length) {
         alert('Some files were skipped. Only images under 5MB are allowed.')
       }
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file))
-      setPreviewUrls(prev => [...prev, ...newPreviews])
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 500))
       onUpload(validFiles)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
@@ -46,8 +59,6 @@ export default function ImageUploader({
   const triggerFileInput = () => fileInputRef.current?.click()
 
   const removeImage = (index: number) => {
-    if (previewUrls[index]) URL.revokeObjectURL(previewUrls[index])
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index))
     onRemove(index)
   }
 
@@ -56,12 +67,7 @@ export default function ImageUploader({
   return (
     <div>
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '16px',
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h3 style={{
           fontFamily: "'Playfair Display', Georgia, serif",
           fontSize: '1.1rem',
@@ -115,11 +121,14 @@ export default function ImageUploader({
               border: '1.5px solid rgba(180, 101, 30, 0.15)',
               backgroundColor: '#fdf6ef',
             }}>
-              <img
-                src={previewUrls[index] || URL.createObjectURL(file)}
-                alt={`Preview ${index + 1}`}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              {/* FIX: previewUrls[index] is now always defined when images[index] exists */}
+              {previewUrls[index] && (
+                <img
+                  src={previewUrls[index]}
+                  alt={`Preview ${index + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )}
             </div>
 
             {!disabled && (
@@ -190,12 +199,7 @@ export default function ImageUploader({
             }}
           >
             <UploadIcon size={22} color="#B4651E" />
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: '500',
-              color: '#B4651E',
-              fontFamily: "'DM Sans', sans-serif",
-            }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '500', color: '#B4651E', fontFamily: "'DM Sans', sans-serif" }}>
               Add
             </span>
           </button>
@@ -225,17 +229,13 @@ export default function ImageUploader({
             marginBottom: '16px',
             fontFamily: "'DM Sans', sans-serif",
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fdf6ef'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fdf6ef')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
           <UploadIcon size={16} />
           Select Images from Device
           {remaining > 0 && (
-            <span style={{
-              fontSize: '0.75rem',
-              color: '#7a6a55',
-              fontWeight: '400',
-            }}>
+            <span style={{ fontSize: '0.75rem', color: '#7a6a55', fontWeight: '400' }}>
               ({remaining} remaining)
             </span>
           )}
@@ -254,23 +254,10 @@ export default function ImageUploader({
       }}>
         <ImageIcon size={18} color="#B4651E" style={{ flexShrink: 0, marginTop: '2px' }} />
         <div>
-          <p style={{
-            fontSize: '0.8rem',
-            fontWeight: '600',
-            color: '#B4651E',
-            margin: '0 0 6px',
-            fontFamily: "'DM Sans', sans-serif",
-          }}>
+          <p style={{ fontSize: '0.8rem', fontWeight: '600', color: '#B4651E', margin: '0 0 6px', fontFamily: "'DM Sans', sans-serif" }}>
             Image Tips
           </p>
-          <ul style={{
-            margin: 0,
-            padding: 0,
-            listStyle: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '3px',
-          }}>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '3px' }}>
             {[
               'Take clear, well-lit photos',
               'Show the issue from multiple angles if needed',
@@ -332,21 +319,10 @@ export default function ImageUploader({
               animation: 'spin 0.8s linear infinite',
               margin: '0 auto 16px',
             }} />
-            <p style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#1a1208',
-              margin: '0 0 6px',
-            }}>
+            <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.1rem', fontWeight: '600', color: '#1a1208', margin: '0 0 6px' }}>
               Processing images...
             </p>
-            <p style={{
-              fontSize: '0.85rem',
-              color: '#7a6a55',
-              margin: 0,
-              fontFamily: "'DM Sans', sans-serif",
-            }}>
+            <p style={{ fontSize: '0.85rem', color: '#7a6a55', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
               This may take a few seconds
             </p>
           </div>

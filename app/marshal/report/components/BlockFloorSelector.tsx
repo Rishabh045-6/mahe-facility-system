@@ -380,7 +380,7 @@ export default function BlockFloorSelector({
           </label>
 
           {selectorButton(
-            selectedRoom ? `Room ${selectedRoom}` : '',
+            selectedRoom ? (/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom) : '',
             'Select Room',
             () => setShowRoomModal(true),
             disabled || !block || !normFloor,
@@ -424,7 +424,7 @@ export default function BlockFloorSelector({
               </div>
               <div>
                 <p style={{ margin: 0, fontFamily: "'DM Sans', sans-serif", fontWeight: 800, color: '#1a1208' }}>
-                  Room Inspection – {block}, Floor {normFloor}, Room {selectedRoom}
+                  Room Inspection – {block}, Floor {normFloor}, {/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom}
                 </p>
                 <p style={{ margin: '2px 0 0', fontFamily: "'DM Sans', sans-serif", fontSize: '0.82rem', color: '#7a6a55' }}>
                   Defaults are prefilled. Update any counts if different.
@@ -477,7 +477,7 @@ export default function BlockFloorSelector({
                   margin: '0 0 8px',
                 }}
               >
-                Room {selectedRoom} – Issue Declaration
+                {/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom} – Issue Declaration
               </h3>
               <p style={{ color: '#7a6a55', fontSize: '0.9rem', margin: '0 0 20px', fontFamily: "'DM Sans', sans-serif" }}>
                 Did you find any issues in this room?
@@ -653,7 +653,7 @@ export default function BlockFloorSelector({
                     margin: '0 0 6px',
                   }}
                 >
-                  Room Actions — {block} Floor {normFloor} • Room {selectedRoom}
+                  Room Actions — {block} Floor {normFloor} • {/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom}
                 </h3>
                 <p style={{ margin: 0, color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem' }}>
                   Save locally. Submit Report sends everything to Administration.

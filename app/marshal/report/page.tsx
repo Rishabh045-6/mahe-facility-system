@@ -1,3 +1,4 @@
+// app/marshal/report/page.tsx
 'use client'
 
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
@@ -31,7 +32,6 @@ export default function MarshalReportPage() {
 
   // ---------- Helpers ----------
   const getISTDateString = useCallback(() => {
-    // YYYY-MM-DD in IST
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
   }, [])
 
@@ -39,14 +39,9 @@ export default function MarshalReportPage() {
     const s = String(f ?? '').trim()
     if (!s) return ''
     const lower = s.toLowerCase()
-
-    // "Floor 4" / "4th Floor" -> "4"
     const m = s.match(/\d+/)
     if (m) return m[0]
-
-    // Ground variants
     if (lower === 'g' || lower.includes('ground')) return 'G'
-
     return s
   }, [])
 
@@ -61,7 +56,6 @@ export default function MarshalReportPage() {
   const [formLocked, setFormLocked] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState('')
 
-  // Local progress (draft/session)
   const [completedRooms, setCompletedRooms] = useState<Set<string>>(new Set())
 
   const [marshalId, setMarshalId] = useState('')
@@ -73,14 +67,14 @@ export default function MarshalReportPage() {
   const floorNorm = useMemo(() => normalizeFloor(floor), [floor, normalizeFloor])
 
   const [checklistResponses, setChecklistResponses] = useState<Record<string, boolean>>({})
-  const [hasIssues, setHasIssues] = useState<boolean | null>(null)
+
+  // REMOVED: hasIssues page-level state — derived from roomIssues instead
 
   const [selectedRoom, setSelectedRoom] = useState<string>('')
   const [roomInspections, setRoomInspections] = useState<Record<string, RoomInspection>>({})
   const [roomIssues, setRoomIssues] = useState<Record<string, IssueFormItem[]>>({})
   const [roomImages, setRoomImages] = useState<Record<string, File[]>>({})
 
-  // Server progress (shared per day)
   const [serverRoomsByFloor, setServerRoomsByFloor] = useState<ServerRoomsByFloor>({})
 
   const [isAutoSaving, setIsAutoSaving] = useState(false)
@@ -90,6 +84,11 @@ export default function MarshalReportPage() {
   const imagesSectionRef = useRef<HTMLDivElement | null>(null)
 
   // ---------- Derived ----------
+  // FIX: Derive hasIssues from actual room issue data instead of dead state
+  const derivedHasIssues = useMemo(() => {
+    return Object.values(roomIssues).some(list => (list?.length ?? 0) > 0)
+  }, [roomIssues])
+
   const isRoomCompletedLocal = useCallback(
     (room: string) => {
       if (!block || !floorNorm) return false
@@ -137,7 +136,6 @@ export default function MarshalReportPage() {
       floor: floorNorm,
       selectedRoom,
       checklistResponses,
-      hasIssues,
       roomInspections,
       roomIssues,
       roomImagesCount: Object.fromEntries(Object.entries(roomImages).map(([k, v]) => [k, v.length])),
@@ -146,7 +144,7 @@ export default function MarshalReportPage() {
     localStorage.setItem('marshalDraft', JSON.stringify(draft))
     setIsAutoSaving(true)
     setTimeout(() => setIsAutoSaving(false), 800)
-  }, [marshalId, marshalName, block, floorNorm, selectedRoom, checklistResponses, hasIssues, roomInspections, roomIssues, roomImages])
+  }, [marshalId, marshalName, block, floorNorm, selectedRoom, checklistResponses, roomInspections, roomIssues, roomImages])
 
   // ---------- Load marshal + local progress ----------
   useEffect(() => {
@@ -174,7 +172,7 @@ export default function MarshalReportPage() {
     setLoading(false)
   }, [router, todayKey])
 
-  // ---------- Load SERVER progress for selected block (all floors for today) ----------
+  // ---------- Load SERVER progress ----------
   useEffect(() => {
     const run = async () => {
       if (!block) {
@@ -183,7 +181,6 @@ export default function MarshalReportPage() {
       }
 
       const today = getISTDateString()
-
       const { data, error } = await supabase
         .from('room_inspections')
         .select('floor, room_number')
@@ -223,6 +220,7 @@ export default function MarshalReportPage() {
   }, [])
 
   // ---------- Auto-save draft timer ----------
+  // FIX: Reduced dependency array to prevent excessive interval resets
   useEffect(() => {
     if (!isBeforeDeadline() || !marshalId) return
 
@@ -233,7 +231,7 @@ export default function MarshalReportPage() {
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [block, floorNorm, checklistResponses, hasIssues, roomInspections, roomIssues, roomImages, marshalId, handleAutoSave])
+  }, [marshalId, handleAutoSave]) // Only restart if marshal or save function changes
 
   // ---------- Load saved draft ----------
   useEffect(() => {
@@ -248,7 +246,6 @@ export default function MarshalReportPage() {
         setFloor(draft.floor || '')
         setSelectedRoom(draft.selectedRoom || '')
         setChecklistResponses(draft.checklistResponses || {})
-        setHasIssues(draft.hasIssues)
         setRoomInspections(draft.roomInspections || {})
         setRoomIssues(draft.roomIssues || {})
         setRoomImages({})
@@ -431,7 +428,6 @@ export default function MarshalReportPage() {
     }
 
     setSelectedRoom(nextRoom)
-
     setRoomInspections((prev) => {
       if (prev[nextRoom]) return prev
       return { ...prev, [nextRoom]: getRoomDefaults(block, floorNorm, nextRoom) }
@@ -494,12 +490,11 @@ export default function MarshalReportPage() {
       toast.error('Please complete the checklist')
       return
     }
-    if (hasIssues === null) {
-      toast.error('Please indicate if you found any issues')
-      return
-    }
 
-    if (hasIssues) {
+    // FIX: No longer checking page-level hasIssues (which was never set).
+    // Instead, we validate based on actual room data.
+    // If rooms have issues declared, validate those issues are complete.
+    if (derivedHasIssues) {
       const roomsWithIssueList = Object.entries(roomIssues).filter(([, list]) => (list?.length ?? 0) > 0)
       const totalIssues = roomsWithIssueList.reduce((acc, [, list]) => acc + (list?.length ?? 0), 0)
 
@@ -518,13 +513,19 @@ export default function MarshalReportPage() {
       }
     }
 
+    // Require at least one room to have been inspected
+    if (Object.keys(roomInspections).length === 0) {
+      toast.error('Please inspect at least one room before submitting')
+      return
+    }
+
     setIsSubmitting(true)
     const toastId = toast.loading('Submitting report...')
 
     try {
       const uploadedByRoom: Record<string, string[]> = {}
 
-      if (hasIssues) {
+      if (derivedHasIssues) {
         const rooms = Object.keys(roomImages)
         if (rooms.length > 0) {
           const { uploadImages } = await import('@/lib/storage/upload')
@@ -540,8 +541,10 @@ export default function MarshalReportPage() {
         }
       }
 
+      // FIX: Include ALL rooms that were visited (have inspection data),
+      // not just those explicitly marked completed. If a marshal fills
+      // everything out but forgets "Mark as Completed", the data must not be lost.
       const roomInspectionPayload = Object.entries(roomInspections)
-        .filter(([room]) => isRoomCompletedLocal(room)) // only locally completed rooms
         .map(([room, insp]) => {
           const roomIssueList = roomIssues[room] ?? []
           const roomHasIssues = roomIssueList.length > 0
@@ -618,7 +621,7 @@ export default function MarshalReportPage() {
       toast.success(result.message || 'Report submitted successfully!', { id: toastId })
       clearDraft()
 
-      // Refresh server progress (shared truth) for THIS block after submit
+      // Refresh server progress after submit
       setTimeout(async () => {
         try {
           const today = getISTDateString()
@@ -647,7 +650,6 @@ export default function MarshalReportPage() {
         setFloor('')
         setSelectedRoom('')
         setChecklistResponses({})
-        setHasIssues(null)
         setRoomInspections({})
         setRoomIssues({})
         setRoomImages({})
@@ -658,15 +660,53 @@ export default function MarshalReportPage() {
       toast.dismiss(toastId)
 
       if (!navigator.onLine) {
+        // FIX: Build proper API payload shape for offline queue,
+        // not raw state objects which the API cannot parse
+        const issuesPayloadForQueue = Object.entries(roomIssues).flatMap(([room, list]) =>
+          (list ?? []).map((issue) => ({
+            room_location: `Room ${room}`,
+            issue_type: issue.issue_type,
+            description: issue.description,
+            is_movable: issue.is_movable ?? false,
+            images: [],
+          }))
+        )
+
+        const roomInspectionPayloadForQueue = Object.entries(roomInspections).map(([room, insp]) => ({
+          room,
+          features: {
+            tables: insp.tables || 0,
+            chairs: insp.chairs || 0,
+            lights: insp.lights || 0,
+            fans: insp.fans || 0,
+            ac: insp.ac || 0,
+            projector: insp.projector || 0,
+            podium: insp.podium || 0,
+            speakers: insp.speakers || 0,
+            dustbin: insp.dustbin || 0,
+            amplifier: insp.amplifier || 0,
+            extra_plug: insp.extra_plug || 0,
+            house_code: insp.house_code || '',
+            issue_notes: insp.issue_notes || '',
+          },
+          hasIssues: (roomIssues[room] ?? []).length > 0,
+          issues: (roomIssues[room] ?? []).map((issue) => ({
+            issue_type: issue.issue_type || '',
+            description: issue.description || '',
+            is_movable: issue.is_movable || false,
+          })),
+        }))
+
         offlineQueue?.addToQueue('issue', {
           marshal_id: marshalId,
           marshal_name: marshalName,
           block,
           floor: floorNorm,
           checklist_responses: checklistResponses,
-          has_issues: hasIssues,
-          room_inspections: roomInspections,
-          room_issues: roomIssues,
+          has_issues: issuesPayloadForQueue.length > 0,
+          room_inspections: roomInspectionPayloadForQueue,
+          issues: issuesPayloadForQueue,
+          submitted_at: new Date().toISOString(),
         })
         toast.success('Report queued for submission when online')
         clearDraft()
@@ -810,7 +850,7 @@ export default function MarshalReportPage() {
                 }}
               >
                 {block} • Floor {floorNorm}
-                {selectedRoom ? ` • Room ${selectedRoom}` : ''}
+                {selectedRoom ? ` • ${/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom}` : ''}
               </span>
             </div>
           </div>
@@ -851,7 +891,6 @@ export default function MarshalReportPage() {
             <ChecklistSection responses={checklistResponses} onChange={handleChecklistChange} disabled={formLocked} />
           </div>
 
-          
           <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <SubmissionSummary block={block} floor={floorNorm} checklistCount={checklistCount} issueCount={issueCount} imageCount={imageCount} />
           </div>
@@ -954,7 +993,6 @@ export default function MarshalReportPage() {
         </form>
       </main>
 
-      {/* Room Selector Modal */}
       {showRoomSelector && (
         <div
           style={{
@@ -1027,14 +1065,12 @@ export default function MarshalReportPage() {
                         <CheckCircle2 size={12} color="white" />
                       </div>
                     )}
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {isCompletedUI && <CheckCircle2 size={16} color="#16a34a" />}
                       <span style={{ fontWeight: '600', color: isCompletedUI ? '#16a34a' : '#1a1208', fontFamily: "'DM Sans', sans-serif", fontSize: '0.95rem' }}>
                         Room {room}
                       </span>
                     </div>
-
                     {isServerDone ? (
                       <span style={{ fontSize: '0.7rem', color: '#16a34a', fontFamily: "'DM Sans', sans-serif" }}>Submitted</span>
                     ) : isCompletedUI ? (

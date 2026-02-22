@@ -1,42 +1,62 @@
+// app/marshal/login/page.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { User, CheckCircle2 } from 'lucide-react'
+import { User, Loader2, ShieldX } from 'lucide-react'
 import Link from 'next/link'
 
 export default function MarshalLoginPage() {
   const [marshalId, setMarshalId] = useState('')
   const [marshalName, setMarshalName] = useState('')
-  const [step, setStep] = useState<'id' | 'name'>('id')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
 
-    if (step === 'id') {
-      if (!marshalId.trim()) {
-        toast.error('Please enter your Marshal ID')
-        setLoading(false)
-        return
-      }
-      setStep('name')
-    } else {
-      if (!marshalName.trim()) {
-        toast.error('Please enter your name')
-        setLoading(false)
-        return
-      }
-      localStorage.setItem('marshalId', marshalId.trim())
-      localStorage.setItem('marshalName', marshalName.trim())
-      toast.success(`Welcome, ${marshalName}!`)
-      router.push('/marshal/report')
+    if (!marshalId.trim()) {
+      toast.error('Please enter your Marshal ID')
+      return
+    }
+    if (!marshalName.trim()) {
+      toast.error('Please enter your name')
+      return
     }
 
-    setLoading(false)
+    setLoading(true)
+
+    try {
+      const response = await fetch('/api/marshal-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          marshal_id: marshalId.trim(),
+          name: marshalName.trim(),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        toast.error(result.error || 'Invalid credentials')
+        setLoading(false)
+        return
+      }
+
+      // Store the name as it exists in the database, not whatever the user typed
+      localStorage.setItem('marshalId', result.marshal_id)
+      localStorage.setItem('marshalName', result.name)
+
+      toast.success(`Welcome, ${result.name}!`)
+      router.push('/marshal/report')
+
+    } catch (err) {
+      console.error('Login error:', err)
+      toast.error('Something went wrong. Please try again.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -69,209 +89,162 @@ export default function MarshalLoginPage() {
           ← Back to Home
         </Link>
 
-        {step === 'id' ? (
-          <>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-              <div style={{
-                width: '72px',
-                height: '72px',
-                backgroundColor: '#B4651E',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
-                boxShadow: '0 4px 16px rgba(180, 101, 30, 0.3)',
-              }}>
-                <User size={32} color="white" />
-              </div>
-              <h2 style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: '1.75rem',
-                fontWeight: '600',
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '72px',
+            height: '72px',
+            backgroundColor: '#B4651E',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            boxShadow: '0 4px 16px rgba(180, 101, 30, 0.3)',
+          }}>
+            <User size={32} color="white" />
+          </div>
+          <h2 style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: '1.75rem',
+            fontWeight: '600',
+            color: '#1a1208',
+            marginBottom: '8px',
+          }}>
+            Marshal Login
+          </h2>
+          <p style={{ color: '#7a6a55', fontSize: '0.9rem', margin: 0 }}>
+            Enter your Marshal ID and name to access the portal
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#1a1208',
+              marginBottom: '8px',
+            }}>
+              Marshal ID
+            </label>
+            <input
+              type="text"
+              value={marshalId}
+              onChange={(e) => setMarshalId(e.target.value)}
+              placeholder="e.g., MAR001"
+              autoFocus
+              required
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1.5px solid rgba(180, 101, 30, 0.25)',
+                borderRadius: '10px',
+                fontSize: '1rem',
+                outline: 'none',
+                backgroundColor: loading ? '#f5f0ea' : '#fffcf7',
                 color: '#1a1208',
-                marginBottom: '8px',
-              }}>
-                Marshal Login
-              </h2>
-              <p style={{ color: '#7a6a55', fontSize: '0.9rem' }}>
-                Please enter your Marshal ID to continue
-              </p>
-            </div>
-
-            <form onSubmit={handleContinue} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#1a1208',
-                  marginBottom: '8px',
-                }}>
-                  Marshal ID
-                </label>
-                <input
-                  type="text"
-                  value={marshalId}
-                  onChange={(e) => setMarshalId(e.target.value.toUpperCase())}
-                  placeholder="e.g., MAR001"
-                  autoFocus
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '1.5px solid rgba(180, 101, 30, 0.25)',
-                    borderRadius: '10px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    backgroundColor: '#fffcf7',
-                    color: '#1a1208',
-                    boxSizing: 'border-box',
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#B4651E'}
-                  onBlur={(e) => e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)'}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: '#B4651E',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1,
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#8f4e16')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#B4651E')}
-              >
-                {loading ? 'Processing...' : 'Continue'}
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-              <div style={{
-                width: '72px',
-                height: '72px',
-                backgroundColor: '#f0fdf4',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 20px',
-              }}>
-                <CheckCircle2 size={40} color="#16a34a" />
-              </div>
-              <h2 style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: '1.75rem',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+                letterSpacing: '0.05em',
                 fontWeight: '600',
+              }}
+              onFocus={(e) => { if (!loading) e.target.style.borderColor = '#B4651E' }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)' }}
+            />
+          </div>
+
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#1a1208',
+              marginBottom: '8px',
+            }}>
+              Your Name
+            </label>
+            <input
+              type="text"
+              value={marshalName}
+              onChange={(e) => setMarshalName(e.target.value)}
+              placeholder="Enter your full name"
+              required
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '1.5px solid rgba(180, 101, 30, 0.25)',
+                borderRadius: '10px',
+                fontSize: '1rem',
+                outline: 'none',
+                backgroundColor: loading ? '#f5f0ea' : '#fffcf7',
                 color: '#1a1208',
-                marginBottom: '8px',
-              }}>
-                Welcome, Marshal!
-              </h2>
-              <p style={{ color: '#7a6a55', fontSize: '0.9rem', marginBottom: '16px' }}>
-                Please enter your name to complete login
-              </p>
-              <div style={{
-                backgroundColor: '#fdf6ef',
-                border: '1px solid rgba(180, 101, 30, 0.2)',
-                borderRadius: '8px',
-                padding: '10px 16px',
-                fontSize: '0.875rem',
-                color: '#B4651E',
-                fontWeight: '500',
-              }}>
-                Marshal ID: {marshalId}
-              </div>
-            </div>
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => { if (!loading) e.target.style.borderColor = '#B4651E' }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)' }}
+            />
+          </div>
 
-            <form onSubmit={handleContinue} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#1a1208',
-                  marginBottom: '8px',
-                }}>
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={marshalName}
-                  onChange={(e) => setMarshalName(e.target.value)}
-                  placeholder="e.g., Pradeep Kumar"
-                  autoFocus
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '1.5px solid rgba(180, 101, 30, 0.25)',
-                    borderRadius: '10px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    backgroundColor: '#fffcf7',
-                    color: '#1a1208',
-                    boxSizing: 'border-box',
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#B4651E'}
-                  onBlur={(e) => e.target.style.borderColor = 'rgba(180, 101, 30, 0.25)'}
-                />
-              </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px',
+              backgroundColor: loading ? '#c4a882' : '#B4651E',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '4px',
+            }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#8f4e16' }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#B4651E' }}
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />
+                Verifying...
+              </>
+            ) : (
+              'Continue'
+            )}
+          </button>
+        </form>
 
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: '#B4651E',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1,
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#8f4e16')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#B4651E')}
-              >
-                {loading ? 'Processing...' : 'Start Inspection'}
-              </button>
+        <div style={{
+          marginTop: '28px',
+          padding: '14px 16px',
+          backgroundColor: '#fdf6ef',
+          border: '1px solid rgba(180, 101, 30, 0.15)',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+        }}>
+          <ShieldX size={16} color="#B4651E" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <p style={{
+            fontSize: '0.8rem',
+            color: '#7a6a55',
+            margin: 0,
+            lineHeight: 1.5,
+          }}>
+            Access is restricted to registered marshals only. Both your ID and name must match our records. Contact your administrator if you have trouble logging in.
+          </p>
+        </div>
 
-              <button
-                type="button"
-                onClick={() => setStep('id')}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  backgroundColor: 'transparent',
-                  color: '#7a6a55',
-                  border: '1.5px solid rgba(180, 101, 30, 0.2)',
-                  borderRadius: '10px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                }}
-              >
-                ← Back
-              </button>
-            </form>
-          </>
-        )}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   )
