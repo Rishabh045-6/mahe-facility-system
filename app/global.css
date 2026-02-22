@@ -54,3 +54,51 @@ img[src=""], img:not([src]) { opacity: 0; }
 @media (display-mode: standalone) {
   body { background-color: #F5F0EA; }
 }
+
+/* Floating Action Buttons Container */
+.fab-container {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+  padding: 0 20px;
+  /* Uncomment below to make it floating */
+  /* position: fixed; */
+  /* bottom: 100px; */
+  /* left: 50%; */
+  /* transform: translateX(-50%); */
+  /* z-index: 40; */
+}
+
+.fab-button {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 14px 28px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.fab-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.5);
+  transform: translateY(-2px);
+}
+
+.fab-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.fab-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

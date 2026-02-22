@@ -1,3 +1,4 @@
+// ✅ FIXED: MarshalStatsWidget.tsx (prevents stale/cached stats)
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -17,7 +18,12 @@ export default function MarshalStatsWidget() {
   const [showPopover, setShowPopover] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { fetchStats() }, [])
+  useEffect(() => {
+    fetchStats()
+    // ✅ optional: keep it fresh so it doesn't look "stagnant"
+    const id = window.setInterval(fetchStats, 60_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -32,7 +38,10 @@ export default function MarshalStatsWidget() {
   const fetchStats = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/marshal-stats')
+      const res = await fetch(`/api/marshal-stats?t=${Date.now()}`, {
+        cache: 'no-store', // ✅ critical: bypass browser/proxy caching
+        headers: { 'cache-control': 'no-cache' },
+      })
       const data = await res.json()
       if (data.success) setStats(data.data)
     } catch (err) {
@@ -44,14 +53,18 @@ export default function MarshalStatsWidget() {
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '8px',
-        backgroundColor: '#fdf6ef',
-        border: '1px solid rgba(180,101,30,0.15)',
-        borderRadius: '8px',
-        padding: '8px 14px',
-        animation: 'pulse 1.5s ease-in-out infinite',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: '#fdf6ef',
+          border: '1px solid rgba(180,101,30,0.15)',
+          borderRadius: '8px',
+          padding: '8px 14px',
+          animation: 'pulse 1.5s ease-in-out infinite',
+        }}
+      >
         <div style={{ width: '14px', height: '14px', backgroundColor: 'rgba(180,101,30,0.15)', borderRadius: '50%' }} />
         <div style={{ width: '48px', height: '12px', backgroundColor: 'rgba(180,101,30,0.1)', borderRadius: '4px' }} />
         <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
@@ -63,6 +76,7 @@ export default function MarshalStatsWidget() {
 
   return (
     <div style={{ position: 'relative' }} ref={popoverRef}>
+
       {/* Trigger pill */}
       <button
         onClick={() => setShowPopover(prev => !prev)}

@@ -1,296 +1,421 @@
-import ExcelJS from 'exceljs'
+import * as XLSX from 'xlsx'
+import type { Issue, RoomInspection, FloorCoverage, ReportData } from './types'
 
-interface Issue {
-  id: string
-  block: string
-  floor: string
-  room_location?: string
-  issue_type: string
-  description: string
-  is_movable: boolean
-  images?: string[]
-  marshal_id: string
-  marshal_name?: string
-  status: string
-  reported_at: string
-}
+export async function generateExcel( data:ReportData, date: string): Promise<Buffer> {
+  const workbook = XLSX.utils.book_new()
 
-interface ExcelData {
-  issues: Issue[]
-  date: string
-}
-
-// MAHE Brand Colors (ARGB format for ExcelJS)
-const COLORS = {
-  primaryDark: 'FF1e3a8a',
-  primary: 'FF2563eb',
-  success: 'FF10b981',
-  danger: 'FFef4444',
-  warning: 'FFf59e0b',
-  headerText: 'FFFFFFFF',
-  rowAlt: 'FFF8FAFC',
-  rowApprovedAlt: 'FFF0FDF4',
-  rowDeniedAlt: 'FFFEF2F2',
-  border: 'FFE5E7EB',
-  text: 'FF111827',
-  subtext: 'FF6B7280',
-}
-
-export async function generateExcel(data: ExcelData, date: string): Promise<Buffer> {
-  const { issues } = data
-  const approvedIssues = issues.filter(i => i.status === 'approved')
-  const deniedIssues = issues.filter(i => i.status === 'denied')
-
-  const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'MAHE Facility Management System'
-  workbook.created = new Date()
-
-  // ============================================
-  // SHEET 1: SUMMARY
-  // ============================================
-  const summarySheet = workbook.addWorksheet('Summary', {
-    pageSetup: { paperSize: 9, orientation: 'portrait' },
-  })
-
-  summarySheet.columns = [
-    { width: 30 },
-    { width: 20 },
-    { width: 20 },
-    { width: 20 },
-    { width: 20 },
-  ]
-
-  // Title rows
-  const titleRow = summarySheet.addRow(['MAHE FACILITY MANAGEMENT SYSTEM'])
-  titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: COLORS.headerText } }
-  titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryDark } }
-  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
-  summarySheet.mergeCells('A1:E1')
-  titleRow.height = 30
-
-  const subtitleRow = summarySheet.addRow(['Daily Facility Inspection Report'])
-  subtitleRow.getCell(1).font = { bold: true, size: 12, color: { argb: COLORS.headerText } }
-  subtitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primary } }
-  subtitleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
-  summarySheet.mergeCells('A2:E2')
-  subtitleRow.height = 22
-
-  const dateRow = summarySheet.addRow([`Report Date: ${formatDate(date)}`])
-  dateRow.getCell(1).font = { italic: true, size: 10, color: { argb: COLORS.subtext } }
-  dateRow.getCell(1).alignment = { horizontal: 'center' }
-  summarySheet.mergeCells('A3:E3')
-
-  summarySheet.addRow([]) // spacer
-
-  // Stats header
-  const statsHeader = summarySheet.addRow(['SUMMARY STATISTICS', '', '', '', ''])
-  statsHeader.getCell(1).font = { bold: true, size: 11, color: { argb: COLORS.primaryDark } }
-  summarySheet.mergeCells('A5:E5')
-
-  const statRows = [
-    ['Total Issues Reported', issues.length],
-    ['Approved Issues', approvedIssues.length],
-    ['Denied Issues', deniedIssues.length],
-    ['Issues With Images', issues.filter(i => i.images && i.images.length > 0).length],
-    ['Total Images', issues.reduce((sum, i) => sum + (i.images?.length || 0), 0)],
-  ]
-
-  statRows.forEach(([label, value], index) => {
-    const row = summarySheet.addRow([label, value])
-    row.getCell(1).font = { size: 10 }
-    row.getCell(2).font = { bold: true, size: 12, color: { argb: COLORS.primaryDark } }
-    if (index % 2 === 0) {
-      row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowAlt } }
-      row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowAlt } }
-    }
-    applyBorder(row.getCell(1))
-    applyBorder(row.getCell(2))
-  })
-
-  // Block breakdown
-  summarySheet.addRow([])
-  const blockHeader = summarySheet.addRow(['BREAKDOWN BY BLOCK', '', '', '', ''])
-  blockHeader.getCell(1).font = { bold: true, size: 11, color: { argb: COLORS.primaryDark } }
-  summarySheet.mergeCells(`A${blockHeader.number}:E${blockHeader.number}`)
-
-  const blockRow = summarySheet.addRow(['Block', 'Total', 'Approved', 'Denied', 'Images'])
-  ;(['A', 'B', 'C', 'D', 'E'] as const).forEach(col => {
-    const cell = blockRow.getCell(col)
-    cell.font = { bold: true, color: { argb: COLORS.headerText } }
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryDark } }
-    cell.alignment = { horizontal: 'center' }
-    applyBorder(cell)
-  })
-
-  const blocks = ['AB1', 'AB2', 'AB3', 'AB4', 'AB5']
-  blocks.forEach((block, idx) => {
-    const blockIssues = issues.filter(i => i.block === block)
-    const row = summarySheet.addRow([
-      block,
-      blockIssues.length,
-      blockIssues.filter(i => i.status === 'approved').length,
-      blockIssues.filter(i => i.status === 'denied').length,
-      blockIssues.reduce((sum, i) => sum + (i.images?.length || 0), 0),
-    ])
-    if (idx % 2 === 0) {
-      row.eachCell(cell => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowAlt } }
-      })
-    }
-    row.eachCell(cell => {
-      cell.alignment = { horizontal: 'center' }
-      applyBorder(cell)
-    })
-  })
-
-  // ============================================
-  // SHEET 2: ALL ISSUES
-  // ============================================
-  const allSheet = workbook.addWorksheet('All Issues')
-  setupIssueSheet(allSheet, issues, 'All Issues', COLORS.primaryDark)
-
-  // ============================================
-  // SHEET 3: APPROVED ISSUES
-  // ============================================
-  const approvedSheet = workbook.addWorksheet('Approved Issues')
-  setupIssueSheet(approvedSheet, approvedIssues, 'Approved Issues', COLORS.success)
-
-  // ============================================
-  // SHEET 4: DENIED ISSUES
-  // ============================================
-  const deniedSheet = workbook.addWorksheet('Denied Issues')
-  setupIssueSheet(deniedSheet, deniedIssues, 'Denied Issues', COLORS.danger)
-
-  // Write to buffer
-  const arrayBuffer = await workbook.xlsx.writeBuffer()
-  return Buffer.from(arrayBuffer)
-}
-
-// ============================================
-// HELPER: Set up an issues worksheet
-// ============================================
-function setupIssueSheet(
-  sheet: ExcelJS.Worksheet,
-  issues: Issue[],
-  title: string,
-  headerColor: string
-) {
-  sheet.columns = [
-    { key: 'no', width: 5 },
-    { key: 'block', width: 8 },
-    { key: 'floor', width: 8 },
-    { key: 'room', width: 18 },
-    { key: 'issue_type', width: 28 },
-    { key: 'description', width: 40 },
-    { key: 'movable', width: 10 },
-    { key: 'status', width: 12 },
-    { key: 'marshal', width: 20 },
-    { key: 'reported_at', width: 22 },
-    { key: 'images', width: 10 },
-  ]
-
-  // Title row
-  const titleRow = sheet.addRow([title.toUpperCase()])
-  sheet.mergeCells(`A1:K1`)
-  titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: COLORS.headerText } }
-  titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } }
-  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
-  titleRow.height = 24
-
-  // Column headers
-  const headers = ['#', 'Block', 'Floor', 'Room/Location', 'Issue Type', 'Description', 'Movable', 'Status', 'Marshal', 'Reported At', 'Images']
-  const headerRow = sheet.addRow(headers)
-  headerRow.eachCell((cell, colNumber) => {
-    cell.font = { bold: true, size: 9, color: { argb: COLORS.headerText } }
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } }
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-    applyBorder(cell)
-  })
-  headerRow.height = 18
-
-  if (issues.length === 0) {
-    const emptyRow = sheet.addRow(['No issues found.'])
-    sheet.mergeCells(`A3:K3`)
-    emptyRow.getCell(1).alignment = { horizontal: 'center' }
-    emptyRow.getCell(1).font = { italic: true, color: { argb: COLORS.subtext } }
-    return
+  // Color palette
+  const colors = {
+    primary: 'B4651E',
+    primaryLight: 'FDF6EF',
+    success: '16a34a',
+    successLight: 'dcfce7',
+    warning: 'f59e0b',
+    warningLight: 'fef3c7',
+    danger: 'dc2626',
+    dangerLight: 'fee2e2',
+    header: '1a1208',
+    headerText: 'FFFFFF',
+    border: 'E5E5E5',
   }
 
-  // Data rows
-  issues.forEach((issue, index) => {
-    const reportedAt = new Date(issue.reported_at).toLocaleString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
+  // ==================== SHEET 1: SUMMARY ====================
+  const summaryData = [
+    ['📋 MAHE Daily Facility Report - Summary'],
+    ['Date', new Date(data.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })],
+    ['Generated On', new Date().toLocaleString('en-IN')],
+    [],
+    ['📊 OVERALL STATISTICS'],
+    ['Total Issues Reported', data.summary.total_issues.toString()],
+    ['✅ Approved Issues', data.summary.approved_issues.toString()],
+    ['❌ Denied Issues', data.summary.denied_issues.toString()],
+    ['🏫 Total Rooms Inspected', data.summary.total_rooms_inspected.toString()],
+    ['⚠️ Rooms with Issues', data.summary.rooms_with_issues.toString()],
+    ['📍 Blocks Covered', data.summary.blocks_covered.join(', ')],
+    [],
+    ['🏢 FLOOR COVERAGE STATUS'],
+    ['Block', 'Floor', 'Status', 'Marshal', 'Submitted At'],
+    ...(data.floor_coverage || []).map((fc: FloorCoverage) => [
+      fc.block,
+      fc.floor,
+      '✓ Checked',
+      fc.marshal_name || 'N/A',
+      fc.submitted_at ? new Date(fc.submitted_at).toLocaleString('en-IN') : 'N/A',
+    ]),
+  ]
 
-    const row = sheet.addRow([
-      index + 1,
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData)
+  
+  // Apply styling
+  const summaryRange = XLSX.utils.decode_range(summarySheet['!ref'] || 'A1')
+  
+  // Title
+  summarySheet['A1'] = { ...summarySheet['A1'], s: { 
+    font: { bold: true, sz: 16, color: { rgb: colors.header } },
+    fill: { fgColor: { rgb: colors.primaryLight } },
+    alignment: { horizontal: 'center' }
+  }}
+  
+  // Section headers
+  ;['A5', 'A13'].forEach(cell => {
+    if (summarySheet[cell]) {
+      summarySheet[cell] = { 
+        ...summarySheet[cell], 
+        s: { 
+          font: { bold: true, sz: 12, color: { rgb: colors.primary } },
+          fill: { fgColor: { rgb: colors.primaryLight } }
+        }
+      }
+    }
+  })
+  
+  // Column headers
+  const headerRow = 14
+  for (let col = 0; col < 5; col++) {
+    const cell = String.fromCharCode(65 + col) + headerRow
+    if (summarySheet[cell]) {
+      summarySheet[cell] = {
+        ...summarySheet[cell],
+        s: {
+          font: { bold: true, color: { rgb: colors.headerText } },
+          fill: { fgColor: { rgb: colors.primary } }
+        }
+      }
+    }
+  }
+  
+  summarySheet['!cols'] = [
+    { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 30 }
+  ]
+  
+  XLSX.utils.book_append_sheet(workbook, summarySheet, '📋 Summary')
+
+  // ==================== SHEET 2: ALL ISSUES ====================
+  const issuesData = [
+    ['#', 'Status', 'Block', 'Floor', 'Room', 'Location', 'Issue Type', 'Description', 'Movable', 'Images', 'Image Links', 'Marshal ID', 'Marshal Name', 'Reported At'],
+  ]
+
+  ;(data.issues || []).forEach((issue: Issue, index: number) => {
+    issuesData.push([
+      (index + 1).toString(),
+      issue.status.toUpperCase(),
       issue.block,
-      `Floor ${issue.floor}`,
+      issue.floor,
+      issue.room_number || '-',
       issue.room_location || '-',
       issue.issue_type,
       issue.description,
       issue.is_movable ? 'Yes' : 'No',
-      issue.status.toUpperCase(),
-      issue.marshal_name || issue.marshal_id,
-      reportedAt,
-      issue.images?.length || 0,
+      (issue.images?.length || 0).toString(),
+      issue.images?.join('; ') || '-',
+      issue.marshal_id,
+      issue.marshal_name,
+      new Date(issue.reported_at).toLocaleString('en-IN'),
     ])
+  })
 
-    // Alternate row shading
-    const isAlt = index % 2 === 0
-    const altColor = issue.status === 'approved'
-      ? (isAlt ? COLORS.rowApprovedAlt : COLORS.headerText)
-      : issue.status === 'denied'
-        ? (isAlt ? COLORS.rowDeniedAlt : COLORS.headerText)
-        : (isAlt ? COLORS.rowAlt : COLORS.headerText)
-
-    row.eachCell((cell, colNum) => {
-      cell.font = { size: 9 }
-      cell.alignment = { vertical: 'middle', wrapText: colNum === 6 }
-      if (isAlt) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: altColor } }
+  const issuesSheet = XLSX.utils.aoa_to_sheet(issuesData)
+  
+  // Style header
+  for (let col = 0; col < 14; col++) {
+    const cell = String.fromCharCode(65 + col) + '1'
+    if (issuesSheet[cell]) {
+      issuesSheet[cell] = {
+        ...issuesSheet[cell],
+        s: {
+          font: { bold: true, color: { rgb: colors.headerText } },
+          fill: { fgColor: { rgb: colors.primary } }
+        }
       }
-      applyBorder(cell)
+    }
+  }
+  
+  // Color code status
+  for (let row = 2; row <= issuesData.length; row++) {
+    const statusCell = 'B' + row
+    if (issuesSheet[statusCell]) {
+      const status = issuesSheet[statusCell].v
+      const fillColor = status === 'APPROVED' ? colors.successLight : 
+                       status === 'DENIED' ? colors.dangerLight : colors.warningLight
+      const textColor = status === 'APPROVED' ? colors.success : 
+                       status === 'DENIED' ? colors.danger : colors.warning
+      
+      issuesSheet[statusCell] = {
+        ...issuesSheet[statusCell],
+        s: {
+          font: { bold: true, color: { rgb: textColor } },
+          fill: { fgColor: { rgb: fillColor } }
+        }
+      }
+    }
+  }
+  
+  issuesSheet['!cols'] = [
+    { wch: 6 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 12 },
+    { wch: 22 }, { wch: 45 }, { wch: 8 }, { wch: 8 }, { wch: 50 },
+    { wch: 12 }, { wch: 20 }, { wch: 22 },
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, issuesSheet, '🔍 All Issues')
+
+  // ==================== SHEET 3: ROOM INSPECTIONS ====================
+  console.log('[EXCEL] Room inspections data:', {
+    count: data.room_inspections?.length || 0,
+    first: data.room_inspections?.[0],
+  })
+  
+  // Get all unique feature keys
+  const allFeatureKeys = Array.from(
+    new Set(
+      (data.room_inspections || []).flatMap((r: RoomInspection) => 
+        Object.keys(r.feature_data || {})
+      )
+    )
+  )
+
+  const roomInspectionData = [
+    ['🏫 Inspection ID', '📍 Block', '🏢 Floor', '🚪 Room Number', '⚠️ Has Issues', '👤 Marshal ID', '👤 Marshal Name', '🕐 Inspected At', ...allFeatureKeys.map(key => key.replace(/([A-Z])/g, ' $1').trim())],
+  ]
+
+  ;
+  (data.room_inspections || []).forEach((inspection: RoomInspection) => {
+  // ✅ Row must be string[] because roomInspectionData expects string[] rows
+  const row: string[] = [
+    String(inspection.id ?? ''),
+    String(inspection.block ?? ''),
+    String(inspection.floor ?? ''),
+    String(inspection.room_number ?? ''),
+    inspection.has_issues ? 'Yes' : 'No',
+    String(inspection.marshal_id ?? ''),
+    String(inspection.marshal_name ?? ''),
+    inspection.created_at ? new Date(inspection.created_at).toLocaleString('en-IN') : 'N/A',
+  ]
+
+  // ✅ Extract features once
+  const features: Record<string, unknown> = inspection.feature_data || {}
+
+  // ✅ Iterate through the unique keys collected from all inspections
+  allFeatureKeys.forEach((key) => {
+    const value = features[key]
+
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'object') {
+        row.push(JSON.stringify(value))
+      } else {
+        row.push(String(value))
+      }
+    } else {
+      row.push('')
+    }
+  })
+
+  roomInspectionData.push(row) // ✅ now row is string[] so TS is happy
+  })
+
+  console.log('[EXCEL] Room inspection rows:', roomInspectionData.length)
+
+  const roomInspectionSheet = XLSX.utils.aoa_to_sheet(roomInspectionData)
+  
+  // Style header
+  const roomHeaderRow = 1
+  for (let col = 0; col < 8 + allFeatureKeys.length; col++) {
+    const cell = String.fromCharCode(65 + col) + roomHeaderRow
+    if (roomInspectionSheet[cell]) {
+      roomInspectionSheet[cell] = {
+        ...roomInspectionSheet[cell],
+        s: {
+          font: { bold: true, color: { rgb: colors.headerText } },
+          fill: { fgColor: { rgb: colors.primary } }
+        }
+      }
+    }
+  }
+  
+  // Color code has_issues
+  for (let row = 2; row <= roomInspectionData.length; row++) {
+    const hasIssuesCell = 'E' + row
+    if (roomInspectionSheet[hasIssuesCell]) {
+      const hasIssues = roomInspectionSheet[hasIssuesCell].v
+      const fillColor = hasIssues === 'Yes ⚠️' ? colors.dangerLight : colors.successLight
+      const textColor = hasIssues === 'Yes ⚠️' ? colors.danger : colors.success
+      
+      roomInspectionSheet[hasIssuesCell] = {
+        ...roomInspectionSheet[hasIssuesCell],
+        s: {
+          font: { bold: true, color: { rgb: textColor } },
+          fill: { fgColor: { rgb: fillColor } }
+        }
+      }
+    }
+  }
+  
+  roomInspectionSheet['!cols'] = [
+    { wch: 38 }, { wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 22 }, { wch: 24 },
+    ...Array(allFeatureKeys.length).fill({ wch: 16 }),
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, roomInspectionSheet, '🏫 Room Inspections')
+
+  // ==================== SHEET 4: BLOCK SUMMARY ====================
+  const blockSummary: Record<string, { issues: number; rooms: number; floors: Set<string> }> = {}
+  
+  ;(data.issues || []).forEach((issue: Issue) => {
+    if (!blockSummary[issue.block]) {
+      blockSummary[issue.block] = { issues: 0, rooms: 0, floors: new Set() }
+    }
+    blockSummary[issue.block].issues++
+    blockSummary[issue.block].floors.add(issue.floor)
+  })
+
+  ;(data.room_inspections || []).forEach((inspection: RoomInspection) => {
+    if (!blockSummary[inspection.block]) {
+      blockSummary[inspection.block] = { issues: 0, rooms: 0, floors: new Set() }
+    }
+    blockSummary[inspection.block].rooms++
+    blockSummary[inspection.block].floors.add(inspection.floor)
+  })
+
+  const blockSummaryData = [
+    ['📊 Block-wise Summary'],
+    ['Block', 'Total Issues', 'Rooms Inspected', 'Floors Covered', 'Coverage %'],
+    ...Object.entries(blockSummary).map(([block, stats]) => [
+      block,
+      stats.issues.toString(),
+      stats.rooms.toString(),
+      Array.from(stats.floors).join(', '),
+      `${Math.round((stats.floors.size / 6) * 100)}%`,
+    ]),
+  ]
+
+  const blockSummarySheet = XLSX.utils.aoa_to_sheet(blockSummaryData)
+  
+  blockSummarySheet['A1'] = { 
+    ...blockSummarySheet['A1'], 
+    s: { 
+      font: { bold: true, sz: 14, color: { rgb: colors.header } },
+      fill: { fgColor: { rgb: colors.primaryLight } }
+    }
+  }
+  
+  const blockHeaderRow = 2
+  for (let col = 0; col < 5; col++) {
+    const cell = String.fromCharCode(65 + col) + blockHeaderRow
+    if (blockSummarySheet[cell]) {
+      blockSummarySheet[cell] = {
+        ...blockSummarySheet[cell],
+        s: {
+          font: { bold: true, color: { rgb: colors.headerText } },
+          fill: { fgColor: { rgb: colors.primary } }
+        }
+      }
+    }
+  }
+  
+  // Color code coverage
+  for (let row = 3; row <= blockSummaryData.length; row++) {
+    const pctCell = 'E' + row
+    if (blockSummarySheet[pctCell]) {
+      const pct = parseInt(blockSummarySheet[pctCell].v)
+      let fillColor = colors.dangerLight
+      let textColor = colors.danger
+      
+      if (pct >= 80) {
+        fillColor = colors.successLight
+        textColor = colors.success
+      } else if (pct >= 50) {
+        fillColor = colors.warningLight
+        textColor = colors.warning
+      }
+      
+      blockSummarySheet[pctCell] = {
+        ...blockSummarySheet[pctCell],
+        s: {
+          font: { bold: true, color: { rgb: textColor } },
+          fill: { fgColor: { rgb: fillColor } }
+        }
+      }
+    }
+  }
+  
+  blockSummarySheet['!cols'] = [
+    { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 22 }, { wch: 14 },
+  ]
+
+  XLSX.utils.book_append_sheet(workbook, blockSummarySheet, '📊 Block Summary')
+
+  // ==================== SHEET 5: ISSUE TYPE ANALYSIS ====================
+  const issueTypeStats: Record<string, number> = {}
+  ;(data.issues || [])
+    .filter((i: Issue) => i.status === 'approved')
+    .forEach((issue: Issue) => {
+      issueTypeStats[issue.issue_type] = (issueTypeStats[issue.issue_type] || 0) + 1
     })
 
-    // Status cell coloring
-    const statusCell = row.getCell(8)
-    statusCell.font = {
-      bold: true,
-      size: 9,
-      color: {
-        argb: issue.status === 'approved' ? COLORS.success : COLORS.danger,
-      },
+  const issueTypeData = [
+    ['📈 Issue Type Analysis'],
+    ['Issue Type', 'Count', 'Percentage', 'Visual'],
+    ...Object.entries(issueTypeStats)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => {
+        const pct = data.summary.approved_issues > 0 
+          ? ((count / data.summary.approved_issues) * 100).toFixed(1)
+          : '0'
+        const bars = '█'.repeat(Math.round(parseInt(pct) / 10))
+        return [type, count.toString(), `${pct}%`, bars]
+      }),
+  ]
+
+  const issueTypeSheet = XLSX.utils.aoa_to_sheet(issueTypeData)
+  
+  issueTypeSheet['A1'] = { 
+    ...issueTypeSheet['A1'], 
+    s: { 
+      font: { bold: true, sz: 14, color: { rgb: colors.header } },
+      fill: { fgColor: { rgb: colors.primaryLight } }
     }
+  }
+  
+  const analysisHeaderRow = 2
+  for (let col = 0; col < 4; col++) {
+    const cell = String.fromCharCode(65 + col) + analysisHeaderRow
+    if (issueTypeSheet[cell]) {
+      issueTypeSheet[cell] = {
+        ...issueTypeSheet[cell],
+        s: {
+          font: { bold: true, color: { rgb: colors.headerText } },
+          fill: { fgColor: { rgb: colors.primary } }
+        }
+      }
+    }
+  }
+  
+  // Style bars
+  for (let row = 3; row <= issueTypeData.length; row++) {
+    const barCell = 'D' + row
+    if (issueTypeSheet[barCell]) {
+      issueTypeSheet[barCell] = {
+        ...issueTypeSheet[barCell],
+        s: {
+          font: { color: { rgb: colors.primary } },
+          fill: { fgColor: { rgb: colors.primaryLight } }
+        }
+      }
+    }
+  }
+  
+  issueTypeSheet['!cols'] = [
+    { wch: 35 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+  ]
 
-    row.height = 20
+  XLSX.utils.book_append_sheet(workbook, issueTypeSheet, '📈 Issue Analysis')
+
+  // ==================== GENERATE BUFFER ====================
+  const buffer = XLSX.write(workbook, {
+    type: 'buffer',
+    bookType: 'xlsx',
+    cellStyles: true,
   })
 
-  // Auto-filter on header row
-  sheet.autoFilter = {
-    from: { row: 2, column: 1 },
-    to: { row: 2, column: 11 },
-  }
-
-  // Freeze top 2 rows
-  sheet.views = [{ state: 'frozen', ySplit: 2 }]
-}
-
-function applyBorder(cell: ExcelJS.Cell) {
-  cell.border = {
-    top: { style: 'thin', color: { argb: COLORS.border } },
-    left: { style: 'thin', color: { argb: COLORS.border } },
-    bottom: { style: 'thin', color: { argb: COLORS.border } },
-    right: { style: 'thin', color: { argb: COLORS.border } },
-  }
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  return buffer
 }

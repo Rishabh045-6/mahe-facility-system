@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/api/cron/archive-marshal-counts"  ],
+, "app/api/cron/archive-marshal-counts", "app/marshal/report/page.tsx"  ],
   "exclude": ["node_modules"]
 }

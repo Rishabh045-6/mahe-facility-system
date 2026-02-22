@@ -1,276 +1,317 @@
 import PDFDocument from 'pdfkit'
+import { Buffer } from 'buffer'
 
-interface Issue {
-  id: string
-  block: string
-  floor: string
-  room_location?: string
-  issue_type: string
-  description: string
-  is_movable: boolean
-  images?: string[]
-  marshal_id: string
-  marshal_name?: string
-  status: string
-  reported_at: string
-}
+import type { Issue, RoomInspection, FloorCoverage, ReportData } from './types'
 
-interface PDFData {
-  issues: Issue[]
-  date: string
-}
 
-// MAHE Brand Colors
-const MAHE_COLORS = {
-  primary: '#1e3a8a',
-  secondary: '#2563eb',
-  accent: '#0ea5e9',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  text: '#000000',
-  background: '#ffffff',
-}
-
-export async function generatePDF(data: PDFData, date: string): Promise<Buffer> {
-  const { issues } = data
-  const approvedIssues = issues.filter(i => i.status === 'approved')
-  const deniedIssues = issues.filter(i => i.status === 'denied')
-
+// ✅ Correct function signature: (data: ReportData, date: string)
+export async function generatePDF(data: ReportData, date: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    // Create new PDF document
-    const doc = new PDFDocument({
-      size: 'A4',
-      margins: { top: 40, bottom: 40, left: 40, right: 40 },
-      autoFirstPage: true,
-      bufferPages: true,
-    })
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 40, right: 40 },
+      })
 
-    const buffers: Buffer[] = []
-    doc.on('data', (chunk: Buffer) => buffers.push(chunk))
-    doc.on('end', () => resolve(Buffer.concat(buffers)))
-    doc.on('error', reject)
+      const chunks: Buffer[] = []
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+      doc.on('end', () => resolve(Buffer.concat(chunks)))
+      doc.on('error', reject)
 
-    let yPos = 40
+      let currentPage = 1
 
-    // ============================================
-    // HEADER SECTION
-    // ============================================
-    doc.rect(0, 0, 595, 80)
-       .fillColor(MAHE_COLORS.primary)
-       .fill()
+      // Helper to add header on each page
+      const addHeader = () => {
+        doc
+          .fontSize(20)
+          .font('Helvetica-Bold')
+          .fillColor('#B4651E')
+          .text('MAHE Daily Facility Report', { align: 'center' })
+          .moveDown(0.3)
+          .fontSize(11)
+          .font('Helvetica')
+          .fillColor('#7a6a55')
+          .text(`Date: ${new Date(data.date).toLocaleDateString('en-IN', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          })}`, { align: 'center' })
+          .moveDown(0.5)
+          .fontSize(9)
+          .text('Manipal Academy of Higher Education', { align: 'center' })
+          .moveDown(0.5)
 
-    doc.fontSize(18)
-       .fillColor('#ffffff')
-       .font('Helvetica-Bold')
-       .text('MANIPAL ACADEMY OF HIGHER EDUCATION', 40, 20, { align: 'center', width: 515 })
-
-    doc.fontSize(12)
-       .font('Helvetica')
-       .text('FACILITY MANAGEMENT SYSTEM', 40, 45, { align: 'center', width: 515 })
-
-    // Report Title
-    doc.fontSize(16)
-       .fillColor(MAHE_COLORS.text)
-       .font('Helvetica-Bold')
-       .text('DAILY FACILITY INSPECTION REPORT', 40, 100, { align: 'center', width: 515 })
-
-    const formattedDate = formatDate(date)
-    doc.fontSize(11)
-       .font('Helvetica')
-       .fillColor('#374151')
-       .text(`Report Date: ${formattedDate}`, 40, 122, { align: 'center', width: 515 })
-
-    yPos = 155
-
-    // ============================================
-    // EXECUTIVE SUMMARY BOX
-    // ============================================
-    doc.rect(40, yPos, 515, 100)
-       .fillColor('#f8fafc')
-       .fill()
-    doc.rect(40, yPos, 515, 100)
-       .strokeColor('#e2e8f0')
-       .stroke()
-
-    doc.fontSize(11)
-       .font('Helvetica-Bold')
-       .fillColor(MAHE_COLORS.primary)
-       .text('EXECUTIVE SUMMARY', 55, yPos + 12)
-
-    const summaryData = [
-      { label: 'Total Issues Reported', value: issues.length.toString() },
-      {
-        label: 'Approved Issues',
-        value: `${approvedIssues.length} (${issues.length > 0 ? Math.round((approvedIssues.length / issues.length) * 100) : 0}%)`,
-      },
-      {
-        label: 'Denied Issues',
-        value: `${deniedIssues.length} (${issues.length > 0 ? Math.round((deniedIssues.length / issues.length) * 100) : 0}%)`,
-      },
-      {
-        label: 'Total Images Captured',
-        value: issues.reduce((sum, i) => sum + (i.images?.length || 0), 0).toString(),
-      },
-    ]
-
-    summaryData.forEach((item, index) => {
-      const col = index % 2
-      const row = Math.floor(index / 2)
-      const x = col === 0 ? 55 : 300
-      const y = yPos + 32 + row * 28
-
-      doc.fontSize(9)
-         .font('Helvetica')
-         .fillColor('#6b7280')
-         .text(item.label, x, y)
-
-      doc.fontSize(11)
-         .font('Helvetica-Bold')
-         .fillColor(MAHE_COLORS.primary)
-         .text(item.value, x, y + 11)
-    })
-
-    yPos += 115
-
-    // ============================================
-    // HELPER: Draw table header row
-    // ============================================
-    const drawTableHeader = (y: number, color: string) => {
-      doc.rect(40, y, 515, 22)
-         .fillColor(color)
-         .fill()
-
-      doc.fontSize(8)
-         .font('Helvetica-Bold')
-         .fillColor('#ffffff')
-         .text('Block', 48, y + 7)
-         .text('Floor', 95, y + 7)
-         .text('Room', 140, y + 7)
-         .text('Issue Type', 190, y + 7, { width: 140 })
-         .text('Description', 335, y + 7, { width: 140 })
-         .text('Marshal', 480, y + 7)
-
-      return y + 22
-    }
-
-    // ============================================
-    // HELPER: Draw issue row
-    // ============================================
-    const drawIssueRow = (issue: Issue, index: number, y: number, bgColor: string) => {
-      if (index % 2 === 0) {
-        doc.rect(40, y, 515, 36)
-           .fillColor(bgColor)
-           .fill()
+        doc.moveTo(40, doc.y).lineTo(570, doc.y).strokeColor('#B4651E').lineWidth(2).stroke()
+        doc.moveDown(0.8)
       }
 
-      doc.rect(40, y, 515, 36)
-         .strokeColor('#e5e7eb')
-         .lineWidth(0.5)
-         .stroke()
+      // Helper to add footer with page number
+      const addFooter = (pageNum: number, total: number) => {
+        const originalY = doc.y
+        doc
+          .moveTo(40, 780)
+          .lineTo(570, 780)
+          .strokeColor('#B4651E')
+          .lineWidth(1)
+          .stroke()
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#7a6a55')
+          .text(`Page ${pageNum} of ${total}`, 40, 790, { align: 'right', width: 500 })
+          .text('Generated by MAHE Facility Management System', 40, 790, { align: 'left', width: 300 })
+          .text(`Generated: ${new Date().toLocaleString('en-IN')}`, 40, 800, { align: 'left', width: 300 })
+        doc.y = originalY
+      }
 
-      doc.fontSize(8)
-         .font('Helvetica')
-         .fillColor(MAHE_COLORS.text)
-         .text(issue.block, 48, y + 5, { width: 42 })
-         .text(`F${issue.floor}`, 95, y + 5, { width: 40 })
-         .text(issue.room_location || '-', 140, y + 5, { width: 45 })
-         .text(issue.issue_type, 190, y + 5, { width: 140, height: 26 })
-         .text(
-           issue.description.length > 55
-             ? issue.description.substring(0, 55) + '...'
-             : issue.description,
-           335, y + 5, { width: 140, height: 26 }
-         )
-         .text(issue.marshal_name || issue.marshal_id, 480, y + 5, { width: 70 })
+      // ==================== PAGE 1: HEADER & EXECUTIVE SUMMARY ====================
+      addHeader()
 
-      return y + 36
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#1a1208')
+        .text('Executive Summary', { underline: true })
+        .moveDown(0.5)
+
+      doc.fontSize(10).font('Helvetica')
+      const statsY = doc.y
+
+      doc.fillColor('#1a1208')
+        .text('Total Issues Reported:', 50, statsY, { width: 150 })
+        .text('Approved Issues:', 50, statsY + 15, { width: 150 })
+        .text('Denied Issues:', 50, statsY + 30, { width: 150 })
+        .text('Total Rooms Inspected:', 50, statsY + 45, { width: 150 })
+        .text('Rooms with Issues:', 50, statsY + 60, { width: 150 })
+
+      doc.font('Helvetica-Bold').fillColor('#B4651E')
+        .text(data.summary.total_issues.toString(), 220, statsY, { width: 50 })
+        .text(data.summary.approved_issues.toString(), 220, statsY + 15, { width: 50 })
+        .text(data.summary.denied_issues.toString(), 220, statsY + 30, { width: 50 })
+        .text(data.summary.total_rooms_inspected.toString(), 220, statsY + 45, { width: 50 })
+        .text(data.summary.rooms_with_issues.toString(), 220, statsY + 60, { width: 50 })
+
+      doc.moveDown(1)
+      doc.font('Helvetica').fillColor('#1a1208')
+        .text('Blocks Covered:', { continued: true })
+        .font('Helvetica-Bold').fillColor('#B4651E')
+        .text(` ${data.summary.blocks_covered.join(', ') || 'None'}`)
+
+      doc.moveDown(1)
+
+      // Floor Coverage Section
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#1a1208')
+        .text('Floor Coverage Status', { underline: true })
+        .moveDown(0.5)
+
+      const checkedFloors = data.floor_coverage.filter((fc: FloorCoverage) => fc.block && fc.floor)
+
+      if (checkedFloors.length > 0) {
+        doc.fontSize(10).font('Helvetica').fillColor('#16a34a')
+          .text(`✓ ${checkedFloors.length} floors inspected successfully`)
+        doc.fillColor('#7a6a55')
+          .text(` across blocks ${[...new Set(checkedFloors.map((fc: FloorCoverage) => fc.block))].join(', ')}`)
+        doc.moveDown(0.5)
+
+        // Optional: List all checked floors
+        doc.fontSize(9).fillColor('#7a6a55')
+          .text(`Floors: ${checkedFloors.map((fc: FloorCoverage) => `${fc.block}/F${fc.floor}`).join(', ')}`)
+      } else {
+        doc.fontSize(10).font('Helvetica').fillColor('#dc2626')
+          .text('⚠ No floor inspections recorded today')
+        doc.moveDown(0.5)
+      }
+      // ✅ Show success message if all floors checked
+      if (checkedFloors.length > 0 ) {
+        doc.fontSize(10).font('Helvetica').fillColor('#16a34a')
+          .text(`✓ All ${checkedFloors.length} floors inspected successfully`)
+        doc.moveDown(0.5)
+      }
+
+      doc.moveDown(1)
+
+      // Room Inspections Summary
+      if (data.room_inspections.length > 0) {
+        doc
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .fillColor('#1a1208')
+          .text('Room Inspection Summary', { underline: true })
+          .moveDown(0.5)
+
+        const inspectionsByBlock = data.room_inspections.reduce((acc: Record<string, RoomInspection[]>, inspection: RoomInspection) => {
+          const key = `${inspection.block}-F${inspection.floor}`
+          if (!acc[key]) acc[key] = []
+          acc[key].push(inspection)
+          return acc
+        }, {})
+
+        Object.entries(inspectionsByBlock).forEach(([blockFloor, inspections]) => {
+          const [block, floor] = blockFloor.split('-F')
+          const roomsWithIssues = (inspections as RoomInspection[]).filter((i: RoomInspection) => i.has_issues).length
+
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
+            .text(`Block ${block} - Floor ${floor}`, { continued: true })
+          doc.font('Helvetica').fillColor('#7a6a55')
+            .text(` - ${inspections.length} rooms inspected`, { continued: true })
+
+          if (roomsWithIssues > 0) {
+            doc.fillColor('#dc2626')
+              .text(` (${roomsWithIssues} with issues)`)
+          } else {
+            doc.fillColor('#16a34a')
+              .text(' (All clear)')
+          }
+        })
+
+        doc.moveDown(1)
+      }
+
+      // Check if we need a new page
+      if (doc.y > 650) {
+        addFooter(currentPage, 3)
+        doc.addPage()
+        currentPage++
+        addHeader()
+      }
+
+      // ==================== PAGE 2+: APPROVED ISSUES ====================
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#1a1208')
+        .text('Detailed Issue Report', { underline: true })
+        .moveDown(0.5)
+
+      const approvedIssues = data.issues.filter((i: Issue) => i.status === 'approved')
+
+      if (approvedIssues.length === 0) {
+        doc.fontSize(11).font('Helvetica').fillColor('#7a6a55')
+          .text('No approved issues to report today.', { align: 'center' })
+          .moveDown(1)
+          .text('All inspected areas are in satisfactory condition.', { align: 'center' })
+      } else {
+        doc.fontSize(10).font('Helvetica').fillColor('#7a6a55')
+          .text(`Total Approved Issues: ${approvedIssues.length}`, { continued: true })
+          .fillColor('#16a34a')
+          .text(` ✓`)
+        doc.moveDown(0.5)
+
+        approvedIssues.forEach((issue: Issue, index: number) => {
+          // Page break check
+          if (doc.y > 680) {
+            addFooter(currentPage, 3)
+            doc.addPage()
+            currentPage++
+            addHeader()
+            doc
+              .fontSize(14)
+              .font('Helvetica-Bold')
+              .fillColor('#1a1208')
+              .text('Detailed Issue Report (continued)', { underline: true })
+              .moveDown(0.5)
+          }
+
+          const issueStartY = doc.y
+
+          doc
+            .fontSize(11)
+            .font('Helvetica-Bold')
+            .fillColor('#B4651E')
+            .text(`Issue #${index + 1}`, 50, issueStartY, { continued: true })
+            .font('Helvetica')
+            .fillColor('#1a1208')
+            .text(` | ${issue.block} - Floor ${issue.floor}${issue.room_number ? `, Room ${issue.room_number}` : ''}`)
+
+          doc.moveDown(0.3)
+
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
+            .text('Type:', { continued: true })
+            .font('Helvetica').fillColor('#7a6a55')
+            .text(` ${issue.issue_type}`)
+
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
+            .text('Description:', { continued: true })
+            .font('Helvetica').fillColor('#1a1208')
+            .text(` ${issue.description}`, { width: 480 })
+
+          doc.moveDown(0.3)
+
+          if (issue.room_location) {
+            doc.fontSize(9).font('Helvetica').fillColor('#7a6a55')
+              .text(`Location: ${issue.room_location}`)
+          }
+
+          doc.fontSize(9)
+            .text(`Reported by: ${issue.marshal_name} (ID: ${issue.marshal_id})`, { continued: true })
+            .text(`| ${new Date(issue.reported_at).toLocaleString('en-IN')}`)
+
+          if (issue.is_movable) {
+            doc.fillColor('#dc2626')
+              .font('Helvetica-Bold')
+              .text('⚠ MOVABLE ITEM - Requires immediate attention')
+            doc.fillColor('#1a1208').font('Helvetica')
+          }
+
+          if (issue.images && issue.images.length > 0) {
+            doc.fontSize(9).fillColor('#B4651E')
+              .text(`📷 ${issue.images.length} photo(s) attached - View in Excel report for links`)
+          }
+
+          doc.moveDown(0.5)
+          doc.moveTo(50, doc.y).lineTo(570, doc.y).strokeColor('#e5e5e5').lineWidth(1).stroke()
+          doc.moveDown(0.5)
+        })
+      }
+
+      // Denied Issues Section
+      const deniedIssues = data.issues.filter((i: Issue) => i.status === 'denied')
+      if (deniedIssues.length > 0) {
+        if (doc.y > 600) {
+          addFooter(currentPage, 3)
+          doc.addPage()
+          currentPage++
+          addHeader()
+        }
+
+        doc
+          .moveDown(1)
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .fillColor('#1a1208')
+          .text('Denied Issues', { underline: true })
+          .moveDown(0.5)
+
+        doc.fontSize(10).font('Helvetica').fillColor('#7a6a55')
+          .text(`Total Denied Issues: ${deniedIssues.length}`)
+        doc.moveDown(0.5)
+
+        deniedIssues.forEach((issue: Issue, index: number) => {
+          doc.fontSize(10)
+            .font('Helvetica-Bold').fillColor('#1a1208')
+            .text(`${index + 1}.`, { continued: true })
+            .font('Helvetica').fillColor('#7a6a55')
+            .text(` ${issue.issue_type} - ${issue.block}/F${issue.floor}${issue.room_number ? `/R${issue.room_number}` : ''}`)
+          doc.fontSize(9).fillColor('#7a6a55')
+            .text(`   ${issue.description}`, { width: 480 })
+          doc.moveDown(0.3)
+        })
+      }
+
+      // Final footer
+      addFooter(currentPage, currentPage)
+
+      doc.moveDown(1)
+      doc.moveTo(40, 50).lineTo(570, 50).strokeColor('#B4651E').lineWidth(1).stroke()
+      doc.moveDown(0.5)
+      doc.fontSize(9).font('Helvetica').fillColor('#7a6a55')
+        .text('Generated by MAHE Facility Management System', { align: 'center' })
+        .text(`Generated: ${new Date().toLocaleString('en-IN')}`, { align: 'center' })
+
+      doc.end()
+
+    } catch (error) {
+      reject(error)
     }
-
-    // ============================================
-    // APPROVED ISSUES SECTION
-    // ============================================
-    if (approvedIssues.length > 0) {
-      if (yPos > 680) { doc.addPage(); yPos = 40 }
-
-      doc.fontSize(13)
-         .font('Helvetica-Bold')
-         .fillColor(MAHE_COLORS.success)
-         .text(`✓  APPROVED ISSUES (${approvedIssues.length})`, 40, yPos)
-
-      yPos += 18
-      yPos = drawTableHeader(yPos, MAHE_COLORS.success)
-
-      approvedIssues.forEach((issue, index) => {
-        if (yPos > 740) { doc.addPage(); yPos = 40 }
-        yPos = drawIssueRow(issue, index, yPos, '#f0fdf4')
-      })
-
-      yPos += 20
-    }
-
-    // ============================================
-    // DENIED ISSUES SECTION
-    // ============================================
-    if (deniedIssues.length > 0) {
-      if (yPos > 680) { doc.addPage(); yPos = 40 }
-
-      doc.fontSize(13)
-         .font('Helvetica-Bold')
-         .fillColor(MAHE_COLORS.danger)
-         .text(`✗  DENIED ISSUES (${deniedIssues.length})`, 40, yPos)
-
-      yPos += 18
-      yPos = drawTableHeader(yPos, MAHE_COLORS.danger)
-
-      deniedIssues.forEach((issue, index) => {
-        if (yPos > 740) { doc.addPage(); yPos = 40 }
-        yPos = drawIssueRow(issue, index, yPos, '#fef2f2')
-      })
-
-      yPos += 20
-    }
-
-    // ============================================
-    // FOOTER ON EVERY PAGE
-    // ============================================
-    const pageCount = doc.bufferedPageRange().count
-    for (let i = 0; i < pageCount; i++) {
-      doc.switchToPage(i)
-
-      doc.moveTo(40, 810)
-         .lineTo(555, 810)
-         .strokeColor('#e5e7eb')
-         .lineWidth(1)
-         .stroke()
-
-      doc.fontSize(8)
-         .font('Helvetica')
-         .fillColor('#9ca3af')
-         .text('MAHE Facility Management System', 40, 818, { width: 200, align: 'left' })
-
-      doc.text(
-         `Generated: ${new Date().toLocaleString('en-IN')}`,
-         190, 818, { width: 215, align: 'center' }
-      )
-
-      doc.text(
-         `Page ${i + 1} of ${pageCount}`,
-         405, 818, { width: 150, align: 'right' }
-      )
-    }
-
-    // Finalize — triggers 'end' event which resolves the Promise
-    doc.end()
-  })
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-IN', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
   })
 }

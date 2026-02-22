@@ -118,6 +118,7 @@ class OfflineQueue {
   
   // Submit issue to API
   private async submitIssue(data: any) {
+    
     const response = await fetch('/api/issues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
