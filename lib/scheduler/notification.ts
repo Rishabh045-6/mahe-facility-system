@@ -60,9 +60,23 @@ export class NotificationScheduler {
       // Generate reports
       const { generatePDF } = await import('@/lib/reports/pdf')
       const { generateExcel } = await import('@/lib/reports/excel')
-      
-      const pdfBuffer = await generatePDF({ issues, date: today }, today)
-      const excelBuffer = await generateExcel({ issues, date: today }, today)
+      const reportData = {
+  issues,
+  date: today,
+  room_inspections: [],
+  floor_coverage: [],
+  summary: {
+    total_issues: issues.length,
+    approved_issues: issues.filter((i: any) => i.status === 'approved').length,
+    denied_issues: issues.filter((i: any) => i.status === 'denied').length,
+    total_rooms_inspected: 0,
+    rooms_with_issues: 0,
+    blocks_covered: [],
+  },
+}
+
+const pdfBuffer = await generatePDF(reportData, today)
+const excelBuffer = await generateExcel(reportData, today)
       
       // Send email
       const success = await emailSender.sendDailyReport(

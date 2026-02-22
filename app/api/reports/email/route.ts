@@ -34,7 +34,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const reportData = { issues, date: today }
+    // ✅ Must match ReportData shape expected by generatePDF / generateExcel
+    const reportData = {
+      issues,
+      date: today,
+      room_inspections: [],
+      floor_coverage: [],
+      summary: {
+        total_issues: issues.length,
+        approved_issues: issues.filter((i: any) => i.status === 'approved').length,
+        denied_issues: issues.filter((i: any) => i.status === 'denied').length,
+        total_rooms_inspected: 0,
+        rooms_with_issues: 0,
+        blocks_covered: [],
+      },
+    }
 
     // Generate both files
     const [pdfBuffer, excelBuffer] = await Promise.all([
@@ -43,10 +57,10 @@ export async function POST(request: NextRequest) {
     ])
 
     const stats = {
-      total:      issues.length,
-      approved:   issues.filter(i => i.status === 'approved').length,
-      denied:     issues.filter(i => i.status === 'denied').length,
-      withImages: issues.filter(i => i.images && i.images.length > 0).length,
+      total: issues.length,
+      approved: issues.filter((i: any) => i.status === 'approved').length,
+      denied: issues.filter((i: any) => i.status === 'denied').length,
+      withImages: issues.filter((i: any) => i.images && i.images.length > 0).length,
     }
 
     const success = await emailSender.sendDailyReport(to, pdfBuffer, excelBuffer, stats)
@@ -63,14 +77,13 @@ export async function POST(request: NextRequest) {
       message: `Report emailed to ${to}`,
       stats,
     })
-
   } catch (error: any) {
     console.error('Error in /api/reports/email:', error)
     return NextResponse.json(
-      { 
-        error: 'Internal server error', 
+      {
+        error: 'Internal server error',
         message: error.message ?? 'Unknown error',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
       { status: 500 }
     )
