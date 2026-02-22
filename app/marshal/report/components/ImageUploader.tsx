@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Image as ImageIcon, X, Upload as UploadIcon, Camera } from 'lucide-react'
 import { MAX_IMAGES_PER_ISSUE } from '@/lib/utils/constants'
+import imageCompression from 'browser-image-compression'
 
 interface ImageUploaderProps {
   images: File[]
@@ -18,6 +19,9 @@ export default function ImageUploader({
   onRemove,
   disabled = false,
 }: ImageUploaderProps) {
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+  const MAX_CAPTURE_BYTES = 12 * 1024 * 1024
+  const MAX_DIMENSION = 1280
   const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -36,25 +40,107 @@ export default function ImageUploader({
     }
   }, [images]) // Re-run only when the images array changes
 
+  const optimizeImage = async (file: File): Promise<File> => {
+    if (!file.type.startsWith('image/')) return file
+    if (file.size <= 900 * 1024) return file
+    if (file.size > MAX_CAPTURE_BYTES) return file
+
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: MAX_DIMENSION,
+        useWebWorker: false,
+        initialQuality: 0.72,
+        fileType: 'image/jpeg',
+      })
+
+      if (compressed.size < file.size) {
+        return new File([compressed], file.name.replace(/\.(png|heic|heif|webp)$/i, '.jpg'), {
+          type: compressed.type || 'image/jpeg',
+          lastModified: Date.now(),
+        })
+      }
+    } catch {
+      // Fallback to canvas path below when web-worker compression fails on some devices.
+    }
+
+    const imageUrl = URL.createObjectURL(file)
+    const img = new window.Image()
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Failed to decode image'))
+        img.src = imageUrl
+      })
+
+      const width = img.naturalWidth
+      const height = img.naturalHeight
+      const ratio = Math.min(1, MAX_DIMENSION / Math.max(width, height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(width * ratio))
+      canvas.height = Math.max(1, Math.round(height * ratio))
+
+      const ctx = canvas.getContext('2d', { alpha: false })
+      if (!ctx) return file
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.76)
+      })
+
+      canvas.width = 0
+      canvas.height = 0
+
+      if (!blob || blob.size >= file.size) return file
+      return new File([blob], file.name.replace(/\.(png|heic|heif|webp)$/i, '.jpg'), {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      })
+    } catch {
+      return file
+    } finally {
+      URL.revokeObjectURL(imageUrl)
+    }
+  }
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
     setCompressing(true)
     try {
       const fileArray = Array.from(files)
-      const validFiles = fileArray.filter(
-        (file) => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
-      )
-      if (validFiles.length < fileArray.length) {
-        alert('Some files were skipped. Only images under 5MB are allowed.')
+      const remainingSlots = MAX_IMAGES_PER_ISSUE - images.length
+      const preparedFiles: File[] = []
+
+      for (const file of fileArray.slice(0, Math.max(remainingSlots, 0))) {
+        if (!file.type.startsWith('image/')) continue
+
+        if (file.size > MAX_CAPTURE_BYTES) {
+          continue
+        }
+
+        const optimized = await optimizeImage(file)
+        if (optimized.size <= MAX_IMAGE_BYTES) {
+          preparedFiles.push(optimized)
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 0))
       }
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      onUpload(validFiles)
+
+      if (preparedFiles.length < fileArray.length) {
+        alert('Some files were skipped. Use clear photos and keep each file under 12MB before processing (5MB after optimization).')
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      onUpload(preparedFiles)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
       setCompressing(false)
     }
   }
+
 
   const triggerFileInput = () => fileInputRef.current?.click()
 

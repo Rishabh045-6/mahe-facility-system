@@ -78,7 +78,7 @@ const innerCard: React.CSSProperties = {
   backgroundColor: 'rgba(255, 252, 247, 0.95)',
   border: '1px solid rgba(180, 101, 30, 0.12)',
   borderRadius: '16px',
-  padding: '22px 22px',
+  padding: 'clamp(14px,4vw, 22px)',
   boxShadow: '0 4px 24px rgba(0,0,0,0.03)',
 }
 
@@ -137,11 +137,11 @@ export default function BlockFloorSelector({
 
   // ✅ Hybrid completion (instant UI): SERVER OR LOCAL
   const isRoomDone = (room: string) => {
-  if (!block || !normFloor) return false
-  const serverDone = serverRoomsByFloor?.[normFloor]?.has(String(room)) ?? false
-  const localDone = isRoomCompleted(String(room))
-  return serverDone || localDone
-}
+    if (!block || !normFloor) return false
+    const serverDone = serverRoomsByFloor?.[normFloor]?.has(String(room)) ?? false
+    const localDone = isRoomCompleted(String(room))
+    return serverDone || localDone
+  }
 
   // ✅ Available rooms from constants (normalized)
   const availableRooms: string[] = useMemo(() => {
@@ -483,13 +483,13 @@ export default function BlockFloorSelector({
                 Did you find any issues in this room?
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setRoomHasIssues(selectedRoom, true)}
                   disabled={disabled}
                   style={{
-                    padding: '20px',
+                    padding: '14px',
                     borderRadius: '12px',
                     border: currentHasIssues ? '2px solid #B4651E' : '2px solid rgba(180, 101, 30, 0.15)',
                     backgroundColor: currentHasIssues ? '#fdf6ef' : 'transparent',
@@ -499,9 +499,9 @@ export default function BlockFloorSelector({
                     transition: 'all 0.2s',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <CheckCircle2 size={24} color={currentHasIssues ? '#B4651E' : '#c4b5a0'} />
-                    <span style={{ fontWeight: '600', color: currentHasIssues ? '#B4651E' : '#7a6a55', fontSize: '0.95rem', fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={20} color={currentHasIssues ? '#B4651E' : '#c4b5a0'} />
+                    <span style={{ fontWeight: '600', color: currentHasIssues ? '#B4651E' : '#7a6a55', fontSize: '0.95rem', fontFamily: "'DM Sans', sans-serif", lineHeight: 1.25, wordBreak: 'break-word' }}>
                       Yes, I found issues
                     </span>
                   </div>
@@ -512,7 +512,7 @@ export default function BlockFloorSelector({
                   onClick={() => setRoomHasIssues(selectedRoom, false)}
                   disabled={disabled}
                   style={{
-                    padding: '20px',
+                    padding: '14px',
                     borderRadius: '12px',
                     border: !currentHasIssues ? '2px solid #16a34a' : '2px solid rgba(180, 101, 30, 0.15)',
                     backgroundColor: !currentHasIssues ? '#f0fdf4' : 'transparent',
@@ -520,11 +520,12 @@ export default function BlockFloorSelector({
                     opacity: disabled ? 0.5 : 1,
                     textAlign: 'left',
                     transition: 'all 0.2s',
+                    minWidth: 0
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <XCircle size={24} color={!currentHasIssues ? '#16a34a' : '#c4b5a0'} />
-                    <span style={{ fontWeight: '600', color: !currentHasIssues ? '#16a34a' : '#7a6a55', fontSize: '0.95rem', fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <XCircle size={20} color={!currentHasIssues ? '#16a34a' : '#c4b5a0'} />
+                    <span style={{ fontWeight: '600', color: !currentHasIssues ? '#16a34a' : '#7a6a55', fontSize: '0.95rem', fontFamily: "'DM Sans', sans-serif", lineHeight: 1.25, wordBreak: 'break-word' }}>
                       No issues found
                     </span>
                   </div>
@@ -580,8 +581,9 @@ export default function BlockFloorSelector({
                       key={issue.id}
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
                         gap: '12px',
                         padding: '12px',
                         borderRadius: '12px',
@@ -589,7 +591,7 @@ export default function BlockFloorSelector({
                         backgroundColor: '#fffcf7',
                       }}
                     >
-                      <div style={{ minWidth: 0 }}>
+                      <div style={{ minWidth: 0, flex: '1 1 180px' }}>
                         <p
                           style={{
                             margin: 0,
@@ -597,10 +599,8 @@ export default function BlockFloorSelector({
                             fontWeight: 800,
                             color: '#1a1208',
                             fontSize: '0.92rem',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '420px',
+                            lineHeight: 1.3,
+                            wordBreak: 'break-word',
                           }}
                         >
                           {issue.issue_type || 'Issue type not selected'}
@@ -611,17 +611,17 @@ export default function BlockFloorSelector({
                             fontFamily: "'DM Sans', sans-serif",
                             color: '#7a6a55',
                             fontSize: '0.82rem',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '420px',
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
                           }}
                         >
                           {issue.description || 'Description not added'}
                         </p>
                       </div>
 
-                      <SaveIssueButton room={selectedRoom} issueId={issue.id} issueData={issue} disabled={disabled} onSaveIssue={onSaveIssue} />
+                      <div style={{ marginLeft: 'auto', width: 'fit-content', maxWidth: '100%' }}>
+                        <SaveIssueButton room={selectedRoom} issueId={issue.id} issueData={issue} disabled={disabled} onSaveIssue={onSaveIssue} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -637,36 +637,37 @@ export default function BlockFloorSelector({
               marginTop: '4px',
               backgroundColor: 'white',
               borderRadius: '16px',
-              padding: '16px',
+              padding: 'clamp(12px, 3.6vw, 16px)',
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               border: '1px solid rgba(180,101,30,0.12)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-              <div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0, flex: '1 1 180px' }}>
                 <h3
                   style={{
                     fontFamily: "'Playfair Display', Georgia, serif",
-                    fontSize: '1.05rem',
+                    fontSize: '1rem',
                     fontWeight: '600',
                     color: '#1a1208',
                     margin: '0 0 6px',
+                    lineHeight: 1.25,
                   }}
                 >
                   Room Actions — {block} Floor {normFloor} • {/^\d+$/.test(selectedRoom) ? `Room ${selectedRoom}` : selectedRoom}
                 </h3>
-                <p style={{ margin: 0, color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem' }}>
+                <p style={{ margin: 0, color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", fontSize: '0.88rem', lineHeight:1.25 }}>
                   Save locally. Submit Report sends everything to Administration.
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'grid', gap: '10px', width: '100%', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => markRoomCompleted(selectedRoom)}
                   style={{
-                    padding: '12px 14px',
+                    padding: '11px 12px',
                     borderRadius: '12px',
                     border: isRoomDone(selectedRoom) ? '2px solid #16a34a' : '2px solid rgba(180,101,30,0.18)',
                     backgroundColor: isRoomDone(selectedRoom) ? '#f0fdf4' : '#fffcf7',
@@ -674,6 +675,7 @@ export default function BlockFloorSelector({
                     opacity: disabled ? 0.5 : 1,
                     fontFamily: "'DM Sans', sans-serif",
                     fontWeight: 700,
+                    lineHeight: 1.2,
                     color: isRoomDone(selectedRoom) ? '#16a34a' : '#1a1208',
                   }}
                 >
@@ -685,7 +687,7 @@ export default function BlockFloorSelector({
                   disabled={disabled}
                   onClick={onMoveNextAndScroll}
                   style={{
-                    padding: '12px 14px',
+                    padding: '11px 12px',
                     borderRadius: '12px',
                     border: '2px solid rgba(180,101,30,0.18)',
                     backgroundColor: '#fdf6ef',
@@ -693,6 +695,7 @@ export default function BlockFloorSelector({
                     opacity: disabled ? 0.5 : 1,
                     fontFamily: "'DM Sans', sans-serif",
                     fontWeight: 700,
+                    lineHeight: 1.2,
                     color: '#B4651E',
                   }}
                 >
@@ -708,7 +711,7 @@ export default function BlockFloorSelector({
       {showBlockModal && (
         <div style={modalOverlay}>
           <div style={modalBox}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(180, 101, 30, 0.1)' }}>
+            <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(180, 101, 30, 0.1)' }}>
               <h4 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.05rem', fontWeight: '600', color: '#1a1208', margin: 0 }}>
                 Select Block
               </h4>

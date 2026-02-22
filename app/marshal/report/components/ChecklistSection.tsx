@@ -170,8 +170,9 @@ export default function ChecklistSection({
                         key={item.id}
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           justifyContent: 'space-between',
+                          flexWrap: 'wrap',
                           padding: '12px 14px',
                           borderRadius: '10px',
                           backgroundColor: isCompleted
@@ -190,15 +191,17 @@ export default function ChecklistSection({
                       >
                         <span style={{
                           flex: 1,
+                          minWidth: '140px',
                           fontSize: '0.875rem',
                           color: isCompleted ? '#166534' : isFailed ? '#991b1b' : '#1a1208',
                           fontFamily: "'DM Sans', sans-serif",
                           lineHeight: 1.4,
+                          wordBreak: 'break-word',
                         }}>
                           {item.text}
                         </span>
 
-                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
                           {/* Tick button */}
                           <button
                             type="button"
@@ -206,8 +209,8 @@ export default function ChecklistSection({
                             disabled={disabled}
                             title="Mark as completed"
                             style={{
-                              width: '36px',
-                              height: '36px',
+                              width: '32px',
+                              height: '32px',
                               borderRadius: '50%',
                               border: isCompleted
                                 ? '2px solid #16a34a'
@@ -223,7 +226,7 @@ export default function ChecklistSection({
                               flexShrink: 0,
                             }}
                           >
-                            <Check size={16} />
+                            <Check size={15} />
                           </button>
 
                           {/* X button */}
@@ -233,8 +236,8 @@ export default function ChecklistSection({
                             disabled={disabled}
                             title="Mark as not completed"
                             style={{
-                              width: '36px',
-                              height: '36px',
+                              width: '32px',
+                              height: '32px',
                               borderRadius: '50%',
                               border: isFailed
                                 ? '2px solid #dc2626'
@@ -250,7 +253,7 @@ export default function ChecklistSection({
                               flexShrink: 0,
                             }}
                           >
-                            <X size={16} />
+                            <X size={15} />
                           </button>
                         </div>
                       </div>
