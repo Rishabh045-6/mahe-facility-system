@@ -10,19 +10,19 @@ export async function GET(request: NextRequest) {
     if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    
+
     console.log('🔄 Running daily report cron job...')
-    
+
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
-    
+
     // Get today's issues
     const { data: issues } = await supabase
-        .from('issues')
-        .select('*')
+      .from('issues')
+      .select('*')
       .gte('reported_at', `${today}T00:00:00`)
       .lte('reported_at', `${today}T23:59:59`)
-    
+
     if (!issues || issues.length === 0) {
       console.log('ℹ️ No issues to report today')
       return NextResponse.json({
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         message: 'No issues to report',
       })
     }
-    
+
     // Calculate statistics
     const stats = {
       total: issues.length,
@@ -39,14 +39,29 @@ export async function GET(request: NextRequest) {
       pending: issues.filter((i: any) => !i.status || i.status === 'pending').length,
       withImages: issues.filter((i: any) => i.images && i.images.length > 0).length,
     }
-    
+
     // Generate reports
     const { generatePDF } = await import('@/lib/reports/pdf')
     const { generateExcel } = await import('@/lib/reports/excel')
-    
-    const pdfBuffer = await generatePDF({ issues, date: today }, today)
-    const excelBuffer = await generateExcel({ issues, date: today }, today)
-    
+
+    const reportData = {
+      issues,
+      date: today,
+      room_inspections: [],
+      floor_coverage: [],
+      summary: {
+        total_issues: issues.length,
+        approved_issues: issues.filter((i: any) => i.status === 'approved').length,
+        denied_issues: issues.filter((i: any) => i.status === 'denied').length,
+        total_rooms_inspected: 0,
+        rooms_with_issues: 0,
+        blocks_covered: [],
+      },
+    }
+
+    const pdfBuffer = await generatePDF(reportData, today)
+    const excelBuffer = await generateExcel(reportData, today)
+
     // Send to director
     const directorEmail = process.env.DIRECTOR_EMAIL || 'director@mahe.edu'
     const success = await emailSender.sendDailyReport(
@@ -55,17 +70,17 @@ export async function GET(request: NextRequest) {
       excelBuffer,
       stats
     )
-    
+
     if (success) {
       console.log('✅ Daily report sent successfully')
-      
+
       // Notify admin
       const adminEmail = process.env.ADMIN_EMAIL || 'admin@mahe.edu'
       await emailSender.sendNotification(
         adminEmail,
         `Daily facility report has been sent to the director. Total issues: ${stats.total} (Approved: ${stats.approved}, Denied: ${stats.denied})`
       )
-      
+
       return NextResponse.json({
         success: true,
         message: 'Daily report sent successfully',
@@ -78,7 +93,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
-    
+
   } catch (error) {
     console.error('❌ Error in cron job:', error)
     return NextResponse.json(
