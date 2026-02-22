@@ -127,8 +127,8 @@ export default function HomePage() {
         }
 
         .logo {
-          width: 150px;
-          height: 150px;
+          width: 200px;
+          height: 200px;
           object-fit: contain;
           filter: drop-shadow(0 4px 12px rgba(185, 100, 30, 0.2));
         }
