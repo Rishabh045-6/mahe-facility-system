@@ -737,6 +737,7 @@ export default function MarshalReportPage() {
             style={{
               width: '48px',
               height: '48px',
+              padding: '0px',
               borderRadius: '50%',
               border: '3px solid rgba(180,101,30,0.2)',
               borderTopColor: '#B4651E',
@@ -764,18 +765,17 @@ export default function MarshalReportPage() {
         style={{
           backgroundColor: 'white',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          position: 'sticky',
-          top: 0,
+          position: 'relative',
           zIndex: 50,
-          padding: '16px 20px',
+          padding: '12px clamp(12px, 4vw, 20px)',
         }}
       >
-        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.3rem', fontWeight: '600', color: '#1a1208', margin: 0 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+            <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.08rem, 4.8vw, 1.3rem)', fontWeight: '600', color: '#1a1208', margin: 0, lineHeight: 1.2 }}>
               Daily Inspection Report
             </h1>
-            <p style={{ color: '#7a6a55', marginTop: '4px', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem' }}>
+            <p style={{ color: '#7a6a55', marginTop: '4px', fontFamily: "'DM Sans', sans-serif", fontSize: 'clamp(0.82rem, 3.4vw, 0.9rem)' }}>
               Welcome, <span style={{ fontWeight: '600' }}>{marshalName}</span>
             </p>
           </div>
@@ -784,25 +784,26 @@ export default function MarshalReportPage() {
             style={{
               backgroundColor: '#fdf6ef',
               borderLeft: '4px solid #B4651E',
-              padding: '10px 14px',
+              padding: '8px 10px',
               borderRadius: '0 8px 8px 0',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
+              flexShrink: 0,
             }}
           >
-            <Clock size={18} color="#B4651E" />
+            <Clock size={15} color="#B4651E" />
             <div>
-              <p style={{ fontSize: '0.75rem', color: '#7a6a55', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Time Remaining</p>
-              <p style={{ fontSize: '1rem', fontWeight: '700', color: '#B4651E', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{timeRemaining}</p>
+              <p style={{ fontSize: '0.72rem', color: '#7a6a55', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Time</p>
+              <p style={{ fontSize: '0.98rem', fontWeight: '700', color: '#B4651E', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{timeRemaining}</p>
             </div>
           </div>
         </div>
 
         {block && floorNorm && (
           <div style={{ maxWidth: '800px', margin: '12px auto 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.85rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", minWidth: 0 }}>
                 Room Progress - {block} Floor {floorNorm}
               </span>
               <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#B4651E', fontFamily: "'DM Sans', sans-serif" }}>
@@ -830,23 +831,26 @@ export default function MarshalReportPage() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '7px',
                 backgroundColor: '#fffcf7',
-                padding: '10px 14px',
+                padding: '8px 10px',
                 borderRadius: '10px',
                 border: '1px solid rgba(180,101,30,0.15)',
+                flexWrap: 'wrap',
               }}
             >
               <Building size={16} color="#B4651E" />
-              <span style={{ fontSize: '0.9rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}>Current:</span>
+              <span style={{ fontSize: '0.85rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}>Current:</span>
               <span
                 style={{
                   fontWeight: '600',
                   color: '#1a1208',
                   fontFamily: "'DM Sans', sans-serif",
                   backgroundColor: '#fdf6ef',
-                  padding: '4px 10px',
+                  padding: '3px 8px',
                   borderRadius: '6px',
+                  minWidth: 0,
+                  wordBreak: 'break-word',
                 }}
               >
                 {block} • Floor {floorNorm}
@@ -857,9 +861,9 @@ export default function MarshalReportPage() {
         )}
       </header>
 
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+      <main style={{ maxWidth: '800px', margin: '0 auto', padding: 'clamp(12px, 4vw, 20px)', boxSizing: 'border-box' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '88px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: 'clamp(14px, 3.6vw, 20px)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <BlockFloorSelector
               block={block}
               floor={floorNorm}
@@ -887,11 +891,11 @@ export default function MarshalReportPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: 'clamp(14px, 3.6vw, 20px)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <ChecklistSection responses={checklistResponses} onChange={handleChecklistChange} disabled={formLocked} />
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: 'clamp(14px, 3.6vw, 20px)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <SubmissionSummary block={block} floor={floorNorm} checklistCount={checklistCount} issueCount={issueCount} imageCount={imageCount} />
           </div>
 

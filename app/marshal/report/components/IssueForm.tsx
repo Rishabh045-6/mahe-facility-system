@@ -70,6 +70,8 @@ export default function IssueForm({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '10px',
         marginBottom: '20px',
       }}>
         <h3 style={{
@@ -146,7 +148,7 @@ export default function IssueForm({
                   onClick={() => toggleExpand(issue.id)}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     padding: '14px 16px',
                     backgroundColor: isOpen ? '#fdf6ef' : 'transparent',
@@ -156,7 +158,7 @@ export default function IssueForm({
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                       <span style={{
                         width: '22px',
                         height: '22px',
@@ -182,7 +184,9 @@ export default function IssueForm({
                           fontFamily: "'DM Sans', sans-serif",
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          lineHeight: 1.3,
                         }}>
                           {issue.issue_type}
                         </p>
@@ -210,7 +214,7 @@ export default function IssueForm({
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0, marginLeft: 'auto' }}>
                     {complete && (
                       <span style={{
                         backgroundColor: '#dcfce7',
@@ -233,8 +237,8 @@ export default function IssueForm({
                       }}
                       disabled={disabled}
                       style={{
-                        width: '32px',
-                        height: '32px',
+                        width: '30px',
+                        height: '30px',
                         borderRadius: '8px',
                         border: '1px solid rgba(220, 38, 38, 0.15)',
                         backgroundColor: 'rgba(220, 38, 38, 0.05)',
@@ -253,7 +257,7 @@ export default function IssueForm({
                         if (!disabled) e.currentTarget.style.backgroundColor = 'rgba(220,38,38,0.05)'
                       }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
 
                     {isOpen
@@ -266,7 +270,7 @@ export default function IssueForm({
                 {/* Expanded fields */}
                 {isOpen && (
                   <div style={{
-                    padding: '20px',
+                    padding: 'clamp(14px, 4vw, 20px)',
                     borderTop: '1px solid rgba(180, 101, 30, 0.08)',
                     display: 'flex',
                     flexDirection: 'column',
