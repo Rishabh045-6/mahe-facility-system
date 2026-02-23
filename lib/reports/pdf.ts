@@ -1,16 +1,34 @@
 import PDFDocument from 'pdfkit'
 import { Buffer } from 'buffer'
-
 import type { Issue, RoomInspection, FloorCoverage, ReportData } from './types'
 
+const PRIMARY   = '#B4651E'
+const DARK      = '#1a1208'
+const SECONDARY = '#7a6a55'
+const SUCCESS   = '#16a34a'
+const DANGER    = '#dc2626'
+const LIGHT_BG  = '#fdf6ef'
+const DIVIDER   = '#e5d5c0'
 
-// ✅ Correct function signature: (data: ReportData, date: string)
+// FIX: always format in IST
+const fmtDate = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+  } catch {
+    return iso
+  }
+}
+
 export async function generatePDF(data: ReportData, date: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
         size: 'A4',
-        margins: { top: 50, bottom: 50, left: 40, right: 40 },
+        margins: { top: 50, bottom: 60, left: 50, right: 50 },
+        info: {
+          Title: `MAHE Facility Report - ${date}`,
+          Author: 'MAHE Facility Management System',
+        },
       })
 
       const chunks: Buffer[] = []
@@ -18,296 +36,331 @@ export async function generatePDF(data: ReportData, date: string): Promise<Buffe
       doc.on('end', () => resolve(Buffer.concat(chunks)))
       doc.on('error', reject)
 
-      let currentPage = 1
+      const PAGE_W = 595 - 100
+      const LEFT   = 50
+      const RIGHT  = 545
+      let pageNum  = 1
 
-      // Helper to add header on each page
+      // ─── HELPERS ────────────────────────────────────────────────────────
+
+      const hline = (y: number, color = DIVIDER, width = 1) => {
+        doc.moveTo(LEFT, y).lineTo(RIGHT, y)
+          .strokeColor(color).lineWidth(width).stroke()
+      }
+
+      const sectionHeader = (title: string) => {
+        if (doc.y > 680) { addPage() }
+        doc.moveDown(0.6)
+        const y = doc.y
+        doc.rect(LEFT, y, PAGE_W, 22).fill(LIGHT_BG)
+        doc.fontSize(10).font('Helvetica-Bold')
+          .fillColor(PRIMARY)
+          .text(title.toUpperCase(), LEFT + 8, y + 6, { width: PAGE_W - 16 })
+        doc.y = y + 28
+      }
+
       const addHeader = () => {
-        doc
-          .fontSize(20)
-          .font('Helvetica-Bold')
-          .fillColor('#B4651E')
-          .text('MAHE Daily Facility Report', { align: 'center' })
-          .moveDown(0.3)
-          .fontSize(11)
-          .font('Helvetica')
-          .fillColor('#7a6a55')
-          .text(`Date: ${new Date(data.date).toLocaleDateString('en-IN', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-          })}`, { align: 'center' })
-          .moveDown(0.5)
-          .fontSize(9)
-          .text('Manipal Academy of Higher Education', { align: 'center' })
-          .moveDown(0.5)
+        doc.rect(LEFT - 50, 0, 595, 90).fill(DARK)
+        doc.fontSize(7).font('Helvetica')
+          .fillColor('white')
+          .text('MANIPAL ACADEMY OF HIGHER EDUCATION', LEFT, 18, {
+            width: PAGE_W, align: 'center', characterSpacing: 2,
+          })
+        doc.fontSize(16).font('Helvetica-Bold')
+          .fillColor('white')
+          .text('FACILITY MANAGEMENT SYSTEM', LEFT, 30, {
+            width: PAGE_W, align: 'center',
+          })
+        doc.fontSize(8).font('Helvetica')
+          .fillColor(PRIMARY)
+          .text('DAILY FACILITY INSPECTION REPORT', LEFT, 54, {
+            width: PAGE_W, align: 'center', characterSpacing: 1.5,
+          })
+        doc.rect(LEFT - 50, 90, 595, 22).fill(PRIMARY)
+        const dateStr = new Date(data.date + 'T12:00:00').toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        })
+        doc.fontSize(8.5).font('Helvetica-Bold')
+          .fillColor('white')
+          .text(`Report Date: ${dateStr}`, LEFT, 97, { width: PAGE_W, align: 'center' })
+        doc.y = 128
+      }
 
-        doc.moveTo(40, doc.y).lineTo(570, doc.y).strokeColor('#B4651E').lineWidth(2).stroke()
+      const addFooter = () => {
+        hline(760, DIVIDER, 0.5)
+        doc.fontSize(7.5).font('Helvetica').fillColor(SECONDARY)
+          .text('MAHE Facility Management System', LEFT, 768, { width: PAGE_W / 2 })
+          .text(
+            `Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}  |  Page ${pageNum}`,
+            LEFT, 768, { width: PAGE_W, align: 'right' }
+          )
+      }
+
+      const addPage = () => {
+        addFooter()
+        doc.addPage()
+        pageNum++
+        doc.rect(LEFT - 50, 0, 595, 32).fill(DARK)
+        doc.fontSize(8).font('Helvetica-Bold')
+          .fillColor('white')
+          .text('MAHE — DAILY FACILITY INSPECTION REPORT (continued)', LEFT, 10, {
+            width: PAGE_W, align: 'center',
+          })
+        doc.rect(LEFT - 50, 32, 595, 14).fill(PRIMARY)
+        const dateStr = new Date(data.date + 'T12:00:00').toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        })
+        doc.fontSize(7).font('Helvetica')
+          .fillColor('white')
+          .text(`Report Date: ${dateStr}`, LEFT, 36, { width: PAGE_W, align: 'center' })
+        doc.y = 60
+      }
+
+      const statRow = (label: string, value: string, valueColor = DARK) => {
+        const y = doc.y
+        doc.fontSize(9.5).font('Helvetica').fillColor(SECONDARY)
+          .text(label, LEFT + 10, y, { width: 200 })
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(valueColor)
+          .text(value, LEFT + 220, y, { width: 200 })
+        doc.y = y + 16
+      }
+
+      // ─── PAGE 1 ─────────────────────────────────────────────────────────
+      addHeader()
+
+      sectionHeader('Executive Summary')
+
+      const boxTop = doc.y
+      doc.rect(LEFT, boxTop, PAGE_W, 130).fillAndStroke('#fffcf7', DIVIDER)
+      doc.y = boxTop + 10
+
+      const totalImages = data.issues.reduce(
+        (acc: number, i: Issue) => acc + (i.images?.length || 0), 0
+      )
+
+      statRow('Total Issues Reported',   data.summary.total_issues.toString(),            DARK)
+      statRow('Approved Issues',
+        `${data.summary.approved_issues}  (${data.summary.total_issues > 0
+          ? Math.round(data.summary.approved_issues / data.summary.total_issues * 100) : 0}%)`,
+        SUCCESS)
+      statRow('Denied Issues',
+        `${data.summary.denied_issues}  (${data.summary.total_issues > 0
+          ? Math.round(data.summary.denied_issues / data.summary.total_issues * 100) : 0}%)`,
+        DANGER)
+      statRow('Total Rooms Inspected',   data.summary.total_rooms_inspected.toString(),   DARK)
+      statRow('Rooms with Issues',       data.summary.rooms_with_issues.toString(),
+        data.summary.rooms_with_issues > 0 ? DANGER : SUCCESS)
+      statRow('Total Images Captured',   totalImages.toString(),                          PRIMARY)
+
+      doc.y = boxTop + 148
+
+      if (data.summary.blocks_covered.length > 0) {
+        let bx = LEFT + 110
+        const by = doc.y
+        doc.fontSize(8).font('Helvetica-Bold').fillColor(SECONDARY)
+          .text('BLOCKS COVERED:', LEFT + 10, by + 3)
+        data.summary.blocks_covered.forEach((block: string) => {
+          doc.rect(bx, by, 40, 16).fillAndStroke(PRIMARY, PRIMARY)
+          doc.fontSize(8).font('Helvetica-Bold').fillColor('white')
+            .text(block, bx, by + 4, { width: 40, align: 'center' })
+          bx += 48
+        })
+        doc.y = by + 28
+      }
+
+      // ── Floor Coverage ──
+      sectionHeader('Floor Coverage Status')
+
+      const checkedFloors = (data.floor_coverage || []).filter(
+        (fc: FloorCoverage) => fc.block && fc.floor
+      )
+
+      if (checkedFloors.length === 0) {
+        doc.fontSize(9.5).font('Helvetica').fillColor(DANGER)
+          .text('⚠  No floor inspections recorded today', LEFT + 10, doc.y)
+        doc.moveDown(0.6)
+      } else {
+        const blocks = [...new Set(checkedFloors.map((fc: FloorCoverage) => fc.block))].join(', ')
+        doc.fontSize(9.5).font('Helvetica').fillColor(SUCCESS)
+          .text(
+            `✓  ${checkedFloors.length} floor${checkedFloors.length !== 1 ? 's' : ''} inspected successfully across ${blocks}`,
+            LEFT + 10, doc.y, { width: PAGE_W - 20 }
+          )
+        doc.moveDown(0.4)
+        doc.fontSize(8.5).font('Helvetica').fillColor(SECONDARY)
+          .text(
+            `Floors: ${checkedFloors.map((fc: FloorCoverage) => `${fc.block}/F${fc.floor}`).join('  ·  ')}`,
+            LEFT + 10, doc.y, { width: PAGE_W - 20 }
+          )
+        doc.moveDown(0.6)
+        doc.fontSize(9.5).font('Helvetica-Bold').fillColor(SUCCESS)
+          .text(`✓  All ${checkedFloors.length} inspected floors submitted successfully`, LEFT + 10, doc.y)
         doc.moveDown(0.8)
       }
 
-      // Helper to add footer with page number
-      const addFooter = (pageNum: number, total: number) => {
-        const originalY = doc.y
-        doc
-          .moveTo(40, 780)
-          .lineTo(570, 780)
-          .strokeColor('#B4651E')
-          .lineWidth(1)
-          .stroke()
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor('#7a6a55')
-          .text(`Page ${pageNum} of ${total}`, 40, 790, { align: 'right', width: 500 })
-          .text('Generated by MAHE Facility Management System', 40, 790, { align: 'left', width: 300 })
-          .text(`Generated: ${new Date().toLocaleString('en-IN')}`, 40, 800, { align: 'left', width: 300 })
-        doc.y = originalY
-      }
-
-      // ==================== PAGE 1: HEADER & EXECUTIVE SUMMARY ====================
-      addHeader()
-
-      doc
-        .fontSize(14)
-        .font('Helvetica-Bold')
-        .fillColor('#1a1208')
-        .text('Executive Summary', { underline: true })
-        .moveDown(0.5)
-
-      doc.fontSize(10).font('Helvetica')
-      const statsY = doc.y
-
-      doc.fillColor('#1a1208')
-        .text('Total Issues Reported:', 50, statsY, { width: 150 })
-        .text('Approved Issues:', 50, statsY + 15, { width: 150 })
-        .text('Denied Issues:', 50, statsY + 30, { width: 150 })
-        .text('Total Rooms Inspected:', 50, statsY + 45, { width: 150 })
-        .text('Rooms with Issues:', 50, statsY + 60, { width: 150 })
-
-      doc.font('Helvetica-Bold').fillColor('#B4651E')
-        .text(data.summary.total_issues.toString(), 220, statsY, { width: 50 })
-        .text(data.summary.approved_issues.toString(), 220, statsY + 15, { width: 50 })
-        .text(data.summary.denied_issues.toString(), 220, statsY + 30, { width: 50 })
-        .text(data.summary.total_rooms_inspected.toString(), 220, statsY + 45, { width: 50 })
-        .text(data.summary.rooms_with_issues.toString(), 220, statsY + 60, { width: 50 })
-
-      doc.moveDown(1)
-      doc.font('Helvetica').fillColor('#1a1208')
-        .text('Blocks Covered:', { continued: true })
-        .font('Helvetica-Bold').fillColor('#B4651E')
-        .text(` ${data.summary.blocks_covered.join(', ') || 'None'}`)
-
-      doc.moveDown(1)
-
-      // Floor Coverage Section
-      doc
-        .fontSize(14)
-        .font('Helvetica-Bold')
-        .fillColor('#1a1208')
-        .text('Floor Coverage Status', { underline: true })
-        .moveDown(0.5)
-
-      const checkedFloors = data.floor_coverage.filter((fc: FloorCoverage) => fc.block && fc.floor)
-
-      if (checkedFloors.length > 0) {
-        doc.fontSize(10).font('Helvetica').fillColor('#16a34a')
-          .text(`✓ ${checkedFloors.length} floors inspected successfully`)
-        doc.fillColor('#7a6a55')
-          .text(` across blocks ${[...new Set(checkedFloors.map((fc: FloorCoverage) => fc.block))].join(', ')}`)
-        doc.moveDown(0.5)
-
-        // Optional: List all checked floors
-        doc.fontSize(9).fillColor('#7a6a55')
-          .text(`Floors: ${checkedFloors.map((fc: FloorCoverage) => `${fc.block}/F${fc.floor}`).join(', ')}`)
-      } else {
-        doc.fontSize(10).font('Helvetica').fillColor('#dc2626')
-          .text('⚠ No floor inspections recorded today')
-        doc.moveDown(0.5)
-      }
-      // ✅ Show success message if all floors checked
-      if (checkedFloors.length > 0 ) {
-        doc.fontSize(10).font('Helvetica').fillColor('#16a34a')
-          .text(`✓ All ${checkedFloors.length} floors inspected successfully`)
-        doc.moveDown(0.5)
-      }
-
-      doc.moveDown(1)
-
-      // Room Inspections Summary
+      // ── Room Inspection Summary ──
       if (data.room_inspections.length > 0) {
-        doc
-          .fontSize(14)
-          .font('Helvetica-Bold')
-          .fillColor('#1a1208')
-          .text('Room Inspection Summary', { underline: true })
-          .moveDown(0.5)
+        sectionHeader('Room Inspection Summary')
 
-        const inspectionsByBlock = data.room_inspections.reduce((acc: Record<string, RoomInspection[]>, inspection: RoomInspection) => {
-          const key = `${inspection.block}-F${inspection.floor}`
-          if (!acc[key]) acc[key] = []
-          acc[key].push(inspection)
-          return acc
-        }, {})
+        const byBlockFloor = data.room_inspections.reduce(
+          (acc: Record<string, RoomInspection[]>, insp: RoomInspection) => {
+            const key = `${insp.block}-F${insp.floor}`
+            if (!acc[key]) acc[key] = []
+            acc[key].push(insp)
+            return acc
+          }, {}
+        )
 
-        Object.entries(inspectionsByBlock).forEach(([blockFloor, inspections]) => {
-          const [block, floor] = blockFloor.split('-F')
-          const roomsWithIssues = (inspections as RoomInspection[]).filter((i: RoomInspection) => i.has_issues).length
+        Object.entries(byBlockFloor).forEach(([key, inspections]) => {
+          if (doc.y > 700) addPage()
+          const withIssues = (inspections as RoomInspection[]).filter(
+            (i: RoomInspection) => i.has_issues
+          ).length
+          const parts = key.split('-F')
+          const block = parts[0]
+          const floor = parts[1]
 
-          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
-            .text(`Block ${block} - Floor ${floor}`, { continued: true })
-          doc.font('Helvetica').fillColor('#7a6a55')
-            .text(` - ${inspections.length} rooms inspected`, { continued: true })
+          const ry = doc.y
+          doc.rect(LEFT, ry, PAGE_W, 18).fill(withIssues > 0 ? '#fff5f5' : '#f0fdf4')
 
-          if (roomsWithIssues > 0) {
-            doc.fillColor('#dc2626')
-              .text(` (${roomsWithIssues} with issues)`)
-          } else {
-            doc.fillColor('#16a34a')
-              .text(' (All clear)')
-          }
+          // FIX: write label and value separately, no { continued: true } across font changes
+          doc.fontSize(9).font('Helvetica-Bold').fillColor(DARK)
+            .text(`Block ${block} — Floor ${floor}`, LEFT + 10, ry + 4, { width: 160 })
+
+          const roomCount = (inspections as RoomInspection[]).length
+          const issueLabel = withIssues > 0
+            ? `${roomCount} rooms inspected  (${withIssues} with issues)`
+            : `${roomCount} rooms inspected  (All clear)`
+          const issueColor = withIssues > 0 ? DANGER : SUCCESS
+
+          doc.fontSize(9).font('Helvetica').fillColor(issueColor)
+            .text(issueLabel, LEFT + 175, ry + 4, { width: PAGE_W - 185 })
+
+          doc.y = ry + 22
         })
 
-        doc.moveDown(1)
+        doc.moveDown(0.5)
       }
 
-      // Check if we need a new page
-      if (doc.y > 650) {
-        addFooter(currentPage, 3)
-        doc.addPage()
-        currentPage++
-        addHeader()
-      }
+      // ─── APPROVED ISSUES ─────────────────────────────────────────────────
+      const approvedIssues = data.issues.filter(
+        (i: Issue) => (i.status ?? '').toLowerCase() === 'approved'
+      )
+      const deniedIssues = data.issues.filter(
+        (i: Issue) => (i.status ?? '').toLowerCase() === 'denied'
+      )
 
-      // ==================== PAGE 2+: APPROVED ISSUES ====================
-      doc
-        .fontSize(14)
-        .font('Helvetica-Bold')
-        .fillColor('#1a1208')
-        .text('Detailed Issue Report', { underline: true })
-        .moveDown(0.5)
-
-      const approvedIssues = data.issues.filter((i: Issue) => i.status === 'approved')
+      sectionHeader(`Detailed Issue Report — Approved (${approvedIssues.length})`)
 
       if (approvedIssues.length === 0) {
-        doc.fontSize(11).font('Helvetica').fillColor('#7a6a55')
-          .text('No approved issues to report today.', { align: 'center' })
-          .moveDown(1)
-          .text('All inspected areas are in satisfactory condition.', { align: 'center' })
+        doc.fontSize(9.5).font('Helvetica').fillColor(SECONDARY)
+          .text(
+            'No approved issues to report today. All inspected areas are in satisfactory condition.',
+            LEFT + 10, doc.y, { width: PAGE_W - 20, align: 'center' }
+          )
+        doc.moveDown(1)
       } else {
-        doc.fontSize(10).font('Helvetica').fillColor('#7a6a55')
-          .text(`Total Approved Issues: ${approvedIssues.length}`, { continued: true })
-          .fillColor('#16a34a')
-          .text(` ✓`)
-        doc.moveDown(0.5)
-
         approvedIssues.forEach((issue: Issue, index: number) => {
-          // Page break check
-          if (doc.y > 680) {
-            addFooter(currentPage, 3)
-            doc.addPage()
-            currentPage++
-            addHeader()
-            doc
-              .fontSize(14)
-              .font('Helvetica-Bold')
-              .fillColor('#1a1208')
-              .text('Detailed Issue Report (continued)', { underline: true })
-              .moveDown(0.5)
-          }
+          // Estimate card height: header(14) + type(14) + desc(variable) + meta(12) + flags + padding
+          const descLines = Math.ceil((issue.description || '').length / 80)
+          const estimatedHeight = 14 + 14 + (descLines * 12) + 12 + 20 + 16
+          if (doc.y + estimatedHeight > 700) addPage()
 
-          const issueStartY = doc.y
+          // ── Card header band ──────────────────────────────────────────
+          const iy = doc.y
+          doc.rect(LEFT, iy, PAGE_W, 14).fill(LIGHT_BG)
 
-          doc
-            .fontSize(11)
-            .font('Helvetica-Bold')
-            .fillColor('#B4651E')
-            .text(`Issue #${index + 1}`, 50, issueStartY, { continued: true })
-            .font('Helvetica')
-            .fillColor('#1a1208')
-            .text(` | ${issue.block} - Floor ${issue.floor}${issue.room_number ? `, Room ${issue.room_number}` : ''}`)
+          // Issue number — left side
+          doc.fontSize(9.5).font('Helvetica-Bold').fillColor(PRIMARY)
+            .text(`Issue #${index + 1}`, LEFT + 8, iy + 2, { width: 65 })
 
+          // Location — right of number, no { continued } to avoid overlap
+          const roomLabel = issue.room_number
+            ? `, Room ${issue.room_number}`
+            : ''
+          const locationLabel = `${issue.block} — Floor ${issue.floor}${roomLabel}${issue.room_location ? ' · ' + issue.room_location : ''}`
+          doc.fontSize(9.5).font('Helvetica').fillColor(DARK)
+            .text(locationLabel, LEFT + 80, iy + 2, { width: PAGE_W - 90 })
+
+          doc.y = iy + 18
+
+          // ── Type row ─────────────────────────────────────────────────
+          const typeY = doc.y
+          doc.fontSize(9).font('Helvetica-Bold').fillColor(DARK)
+            .text('Type:', LEFT + 10, typeY, { width: 42 })
+          doc.fontSize(9).font('Helvetica').fillColor(SECONDARY)
+            .text(issue.issue_type || '-', LEFT + 55, typeY, { width: PAGE_W - 65 })
+          doc.y = Math.max(doc.y, typeY + 13)
+
+          // ── Description ──────────────────────────────────────────────
+          const descY = doc.y
+          doc.fontSize(9).font('Helvetica-Bold').fillColor(DARK)
+            .text('Description:', LEFT + 10, descY, { width: 80 })
+          // Description on next line to avoid overlap on long text
+          doc.y = descY + 13
+          doc.fontSize(9).font('Helvetica').fillColor(DARK)
+            .text(issue.description || '-', LEFT + 10, doc.y, { width: PAGE_W - 20 })
           doc.moveDown(0.3)
 
-          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
-            .text('Type:', { continued: true })
-            .font('Helvetica').fillColor('#7a6a55')
-            .text(` ${issue.issue_type}`)
-
-          doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1208')
-            .text('Description:', { continued: true })
-            .font('Helvetica').fillColor('#1a1208')
-            .text(` ${issue.description}`, { width: 480 })
-
+          // ── Meta row ─────────────────────────────────────────────────
+          const metaY = doc.y
+          const reportedAt = issue.reported_at ? fmtDate(issue.reported_at) : 'N/A'
+          doc.fontSize(8).font('Helvetica').fillColor(SECONDARY)
+            .text(
+              `Reported by: ${issue.marshal_name || '—'} (ID: ${issue.marshal_id})   |   ${reportedAt}`,
+              LEFT + 10, metaY, { width: PAGE_W - 20 }
+            )
           doc.moveDown(0.3)
 
-          if (issue.room_location) {
-            doc.fontSize(9).font('Helvetica').fillColor('#7a6a55')
-              .text(`Location: ${issue.room_location}`)
-          }
-
-          doc.fontSize(9)
-            .text(`Reported by: ${issue.marshal_name} (ID: ${issue.marshal_id})`, { continued: true })
-            .text(`| ${new Date(issue.reported_at).toLocaleString('en-IN')}`)
-
+          // ── Flags ────────────────────────────────────────────────────
           if (issue.is_movable) {
-            doc.fillColor('#dc2626')
-              .font('Helvetica-Bold')
-              .text('⚠ MOVABLE ITEM - Requires immediate attention')
-            doc.fillColor('#1a1208').font('Helvetica')
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(DANGER)
+              .text('⚠  MOVABLE ITEM — Requires immediate attention', LEFT + 10, doc.y)
+            doc.moveDown(0.2)
           }
-
           if (issue.images && issue.images.length > 0) {
-            doc.fontSize(9).fillColor('#B4651E')
-              .text(`📷 ${issue.images.length} photo(s) attached - View in Excel report for links`)
+            doc.fontSize(8).font('Helvetica').fillColor(PRIMARY)
+              .text(
+                `📷  ${issue.images.length} photo${issue.images.length !== 1 ? 's' : ''} attached — see Excel for links`,
+                LEFT + 10, doc.y
+              )
+            doc.moveDown(0.2)
           }
 
-          doc.moveDown(0.5)
-          doc.moveTo(50, doc.y).lineTo(570, doc.y).strokeColor('#e5e5e5').lineWidth(1).stroke()
+          doc.moveDown(0.3)
+          hline(doc.y, DIVIDER, 0.5)
           doc.moveDown(0.5)
         })
       }
 
-      // Denied Issues Section
-      const deniedIssues = data.issues.filter((i: Issue) => i.status === 'denied')
+      // ─── DENIED ISSUES ────────────────────────────────────────────────────
       if (deniedIssues.length > 0) {
-        if (doc.y > 600) {
-          addFooter(currentPage, 3)
-          doc.addPage()
-          currentPage++
-          addHeader()
-        }
-
-        doc
-          .moveDown(1)
-          .fontSize(14)
-          .font('Helvetica-Bold')
-          .fillColor('#1a1208')
-          .text('Denied Issues', { underline: true })
-          .moveDown(0.5)
-
-        doc.fontSize(10).font('Helvetica').fillColor('#7a6a55')
-          .text(`Total Denied Issues: ${deniedIssues.length}`)
-        doc.moveDown(0.5)
+        sectionHeader(`Denied Issues (${deniedIssues.length})`)
 
         deniedIssues.forEach((issue: Issue, index: number) => {
-          doc.fontSize(10)
-            .font('Helvetica-Bold').fillColor('#1a1208')
-            .text(`${index + 1}.`, { continued: true })
-            .font('Helvetica').fillColor('#7a6a55')
-            .text(` ${issue.issue_type} - ${issue.block}/F${issue.floor}${issue.room_number ? `/R${issue.room_number}` : ''}`)
-          doc.fontSize(9).fillColor('#7a6a55')
-            .text(`   ${issue.description}`, { width: 480 })
-          doc.moveDown(0.3)
+          if (doc.y > 700) addPage()
+
+          const dy = doc.y
+          // Number
+          doc.fontSize(9).font('Helvetica-Bold').fillColor(DANGER)
+            .text(`${index + 1}.`, LEFT + 10, dy, { width: 20 })
+          // Type + location
+          doc.fontSize(9).font('Helvetica').fillColor(DARK)
+            .text(
+              `${issue.issue_type}  —  ${issue.block}/F${issue.floor}${issue.room_number ? `/R${issue.room_number}` : ''}`,
+              LEFT + 30, dy, { width: PAGE_W - 40 }
+            )
+          doc.y = Math.max(doc.y, dy + 13)
+          // Description
+          doc.fontSize(8.5).font('Helvetica').fillColor(SECONDARY)
+            .text(issue.description || '-', LEFT + 30, doc.y, { width: PAGE_W - 40 })
+          doc.moveDown(0.4)
         })
       }
 
-      // Final footer
-      addFooter(currentPage, currentPage)
-
-      doc.moveDown(1)
-      doc.moveTo(40, 50).lineTo(570, 50).strokeColor('#B4651E').lineWidth(1).stroke()
-      doc.moveDown(0.5)
-      doc.fontSize(9).font('Helvetica').fillColor('#7a6a55')
-        .text('Generated by MAHE Facility Management System', { align: 'center' })
-        .text(`Generated: ${new Date().toLocaleString('en-IN')}`, { align: 'center' })
-
+      addFooter()
       doc.end()
 
     } catch (error) {
