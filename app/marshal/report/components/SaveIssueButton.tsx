@@ -10,6 +10,7 @@ type IssueFormItem = {
   description: string
   is_movable: boolean
   room_location: string
+  saved?: boolean
 }
 
 type SaveIssueButtonProps = {
@@ -28,7 +29,6 @@ export function SaveIssueButton({
   disabled = false,
 }: SaveIssueButtonProps) {
   const [isSaving, setIsSaving] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
 
   const handleSave = async () => {
     if (!issueData.issue_type) {
@@ -44,8 +44,6 @@ export function SaveIssueButton({
     try {
       await new Promise((r) => setTimeout(r, 250))
       onSaveIssue(room, issueId, issueData)
-      setShowSuccess(true)
-      setTimeout(() => setShowSuccess(false), 1200)
     } catch (e) {
       console.error(e)
       alert('Failed to save issue')
@@ -54,7 +52,8 @@ export function SaveIssueButton({
     }
   }
 
-  const isDisabledState = disabled || isSaving
+  const isSaved = Boolean(issueData.saved)
+  const isDisabledState = disabled || isSaving || isSaved
 
   return (
     <button
@@ -69,7 +68,7 @@ export function SaveIssueButton({
         padding: '10px 18px',
         borderRadius: '10px',
         border: 'none',
-        backgroundColor: showSuccess ? '#16a34a' : '#B4651E',
+        backgroundColor: isSaved ? '#16a34a' : '#B4651E',
         color: 'white',
         fontSize: '0.9rem',
         fontWeight: '600',
@@ -79,22 +78,21 @@ export function SaveIssueButton({
         transition: 'background-color 0.2s, opacity 0.2s',
         whiteSpace: 'nowrap',
         flexShrink: 0,
-      }}
-      onMouseEnter={(e) => {
+      }}onMouseEnter={(e) => {
         if (!isDisabledState) {
-          e.currentTarget.style.backgroundColor = showSuccess ? '#15803d' : '#8f4e16'
+          e.currentTarget.style.backgroundColor = isSaved ? '#15803d' : '#8f4e16'
         }
       }}
       onMouseLeave={(e) => {
         if (!isDisabledState) {
-          e.currentTarget.style.backgroundColor = showSuccess ? '#16a34a' : '#B4651E'
+          e.currentTarget.style.backgroundColor = isSaved ? '#16a34a' : '#B4651E'
         }
       }}
     >
-      {showSuccess ? (
+      {isSaved ? (
         <>
           <CheckCircle size={16} />
-          Saved!
+          Issue Saved
         </>
       ) : (
         <>

@@ -15,8 +15,20 @@ interface Issue {
   reported_at: string
 }
 
+interface RoomInspection {
+  block: string
+  floor: string
+  room_number: string
+  feature_data: Record<string, unknown>
+  has_issues: boolean
+  marshal_id: string
+  marshal_name?: string
+  created_at: string
+}
+
 interface ExcelData {
   issues: Issue[]
+  room_inspections?: RoomInspection[]
   date: string
 }
 
@@ -39,7 +51,7 @@ const COLORS = {
 }
 
 export async function generateExcel(data: ExcelData, date: string): Promise<Buffer> {
-  const { issues } = data
+  const { issues, room_inspections: roomInspections = [] } = data
   const approvedIssues = issues.filter(i => i.status === 'approved')
   const deniedIssues = issues.filter(i => i.status === 'denied')
 
@@ -148,7 +160,7 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
   })
 
   // Block Data
-  const blocks = ['AB1', 'AB2', 'AB3', 'AB4', 'AB5']
+  const blocks = ['AB4', 'AB5']
   blocks.forEach((block, idx) => {
     const blockIssues = issues.filter(i => i.block === block)
     const row = summarySheet.addRow([
@@ -167,7 +179,7 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
     })
   })
 
-  // ============================================
+ // ============================================
   // SHEET 2: ALL ISSUES
   // ============================================
   const allSheet = workbook.addWorksheet('All Issues', {
@@ -190,6 +202,14 @@ export async function generateExcel(data: ExcelData, date: string): Promise<Buff
     views: [{ showGridLines: false }]
   })
   setupIssueSheet(deniedSheet, deniedIssues, 'Denied Issues', COLORS.danger)
+
+  // ============================================
+  // SHEET 5: ITEM COUNTS BY MARSHAL
+  // ============================================
+  const itemCountsSheet = workbook.addWorksheet('Item Counts', {
+    views: [{ showGridLines: false }]
+  })
+  setupItemCountSheet(itemCountsSheet, roomInspections)
 
   // Write to buffer
   const arrayBuffer = await workbook.xlsx.writeBuffer()
@@ -307,6 +327,123 @@ function setupIssueSheet(
   }
 
   // Freeze top 2 rows
+  sheet.views = [{ state: 'frozen', ySplit: 2, showGridLines: false }]
+}
+
+function setupItemCountSheet(sheet: ExcelJS.Worksheet, roomInspections: RoomInspection[]) {
+  type ItemKey = 'tables' | 'chairs' | 'ac' | 'fans' | 'lights' | 'podium' | 'dustbin' | 'speakers' | 'amplifier' | 'projector' | 'extra_plug'
+
+  sheet.columns = [
+    { key: 'block', width: 10 },
+    { key: 'floor', width: 8 },
+    { key: 'room_number', width: 14 },
+    { key: 'has_issues', width: 12 },
+    { key: 'marshal_id', width: 12 },
+    { key: 'marshal_name', width: 22 },
+    { key: 'inspected_at', width: 24 },
+    { key: 'ac', width: 8 },
+    { key: 'fans', width: 8 },
+    { key: 'chairs', width: 9 },
+    { key: 'tables', width: 9 },
+    { key: 'lights', width: 9 },
+    { key: 'podium', width: 9 },
+    { key: 'dustbin', width: 11 },
+    { key: 'speakers', width: 10 },
+    { key: 'amplifier', width: 11 },
+    { key: 'projector', width: 11 },
+    { key: 'extra_plug', width: 12 },
+  ]
+
+  const titleRow = sheet.addRow(['ITEM COUNTS BY MARSHAL'])
+  titleRow.height = 28
+  sheet.mergeCells('A1:R1')
+  titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: COLORS.headerText }, name: 'Calibri' }
+  titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryDark } }
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+  titleRow.getCell(1).border = {
+    top: { style: 'medium', color: { argb: COLORS.primaryDark } },
+    bottom: { style: 'medium', color: { argb: COLORS.primaryDark } }
+  }
+
+  const headerRow = sheet.addRow([
+    'Block', 'Floor', 'Room Number', 'Has Issues', 'Marshal ID', 'Marshal Name', 'Inspected At',
+    'ac', 'fans', 'chairs', 'tables', 'lights', 'podium', 'dustbins', 'speakers', 'amplifiers', 'projectors', 'extra plug'
+  ])
+  headerRow.height = 22
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, size: 10, color: { argb: COLORS.headerText }, name: 'Calibri' }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryDark } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    applyBorder(cell, true)
+  })
+
+  if (roomInspections.length === 0) {
+    const emptyRow = sheet.addRow(['No item data found.'])
+    emptyRow.height = 24
+    sheet.mergeCells('A3:R3')
+    emptyRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+    emptyRow.getCell(1).font = { italic: true, size: 11, color: { argb: COLORS.subtext }, name: 'Calibri' }
+    emptyRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.rowEven } }
+    return
+  }
+
+  roomInspections.forEach((inspection, index) => {
+    const features = inspection.feature_data || {}
+    const inspectedAt = inspection.created_at
+      ? new Date(inspection.created_at).toLocaleString('en-IN', {
+          day: '2-digit', month: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+        })
+      : '-'
+
+    const countValue = (key: ItemKey): number => {
+      const raw = features[key]
+      if (typeof raw === 'number') return raw
+      if (typeof raw === 'string') {
+        const parsed = Number.parseInt(raw, 10)
+        return Number.isFinite(parsed) ? parsed : 0
+      }
+      return 0
+    }
+
+    const row = sheet.addRow([
+      inspection.block || '-',
+      inspection.floor || '-',
+      inspection.room_number || '-',
+      inspection.has_issues ? 'Yes' : 'No',
+      inspection.marshal_id || '-',
+      inspection.marshal_name || inspection.marshal_id || '-',
+      inspectedAt,
+      countValue('ac'),
+      countValue('fans'),
+      countValue('chairs'),
+      countValue('tables'),
+      countValue('lights'),
+      countValue('podium'),
+      countValue('dustbin'),
+      countValue('speakers'),
+      countValue('amplifier'),
+      countValue('projector'),
+      countValue('extra_plug'),
+    ])
+
+    row.height = 22
+    row.eachCell((cell, colNum) => {
+      cell.font = { size: 10, name: 'Calibri' }
+      cell.alignment = {
+        horizontal: colNum >= 8 ? 'center' : 'left',
+        vertical: 'middle',
+      }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: index % 2 === 0 ? COLORS.rowEven : COLORS.rowOdd } }
+      applyBorder(cell)
+    })
+  })
+
+  sheet.autoFilter = {
+    from: { row: 2, column: 1 },
+    to: { row: 2, column: 18 },
+  }
+
   sheet.views = [{ state: 'frozen', ySplit: 2, showGridLines: false }]
 }
 

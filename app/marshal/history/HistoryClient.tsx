@@ -15,9 +15,48 @@ type FloorCoverageRow = {
   submitted_at: string | null
   has_issues?: boolean | null
 }
-
 const makeKey = (s: { date: string; block: string; floor: string; marshal_id: string }) =>
   `${s.date}|${s.block}|${s.floor}|${s.marshal_id}`
+
+
+const normalizeToISOWithTZ = (input: string) => {
+  const s = input.trim().replace(' ', 'T')
+
+  // If it already has timezone info (Z or +hh:mm or -hh:mm), keep as-is
+  const hasTZ = /Z$|[+-]\d{2}:\d{2}$/.test(s)
+  if (hasTZ) return s
+
+  // Otherwise assume it's UTC and append Z
+  return `${s}Z`
+}
+
+const formatISTDateTime = (iso: string | null) => {
+  if (!iso) return 'Unknown date'
+
+  const safeISO = normalizeToISOWithTZ(iso)
+  const d = new Date(safeISO)
+
+  if (Number.isNaN(d.getTime())) return 'Invalid date'
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
+  }).format(d)
+}
+
+const getISTDateKey = (iso: string) => {
+  const safeISO = normalizeToISOWithTZ(iso)
+  const d = new Date(safeISO)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+  }).format(d)
+}
+
 
 export default function HistoryClient() {
   const router = useRouter()
@@ -89,7 +128,7 @@ export default function HistoryClient() {
         const issuesMap: Record<string, number> = {}
         for (const r of (issueRows || []) as any[]) {
           if (!r.reported_at) continue
-          const date = new Date(r.reported_at).toISOString().slice(0, 10)
+          const date = getISTDateKey(r.reported_at)
           const k = `${date}|${r.block}|${r.floor}|${r.marshal_id}`
           if (!keySet.has(k)) continue
           issuesMap[k] = (issuesMap[k] ?? 0) + 1
@@ -236,9 +275,8 @@ export default function HistoryClient() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fdf6ef', padding: '6px 12px', borderRadius: '8px' }}>
                       <Calendar size={14} color="#B4651E" />
                       <span style={{ fontSize: '0.85rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}>
-                        {submission.submitted_at
-                          ? new Date(submission.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                          : 'Unknown date'}
+                        {formatISTDateTime(submission.submitted_at)}
+
                       </span>
                     </div>
                   </div>

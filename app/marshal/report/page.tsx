@@ -23,6 +23,7 @@ type IssueFormItem = {
   description: string
   is_movable: boolean
   room_location: string
+  saved?: boolean
 }
 
 type ServerRoomsByFloor = Record<string, Set<string>>
@@ -332,6 +333,7 @@ export default function MarshalReportPage() {
         description: '',
         is_movable: false,
         room_location: `Room ${room}`,
+        saved: false,
       }
       return { ...prev, [room]: [...list, nextIssue] }
     })
@@ -340,7 +342,14 @@ export default function MarshalReportPage() {
   const updateIssueForRoom = (room: string, id: number, field: string, value: any) => {
     setRoomIssues((prev) => {
       const list = prev[room] ?? []
-      const nextList = list.map((issue) => (issue.id === id ? { ...issue, [field]: value } : issue))
+      const nextList = list.map((issue) => {
+        if (issue.id !== id) return issue
+        const updatedIssue = { ...issue, [field]: value }
+        if (field !== 'saved') {
+          updatedIssue.saved = false
+        }
+        return updatedIssue
+      })
       return { ...prev, [room]: nextList }
     })
   }
@@ -724,6 +733,7 @@ export default function MarshalReportPage() {
       }
     })
 
+    updateIssueForRoom(room, issueId, 'saved', true)
     markRoomCompleted(room)
     toast.success('Issue saved successfully!')
   }

@@ -14,6 +14,7 @@ type Issue = {
   description: string
   is_movable: boolean
   room_location: string
+  saved?: boolean
 }
 
 interface BlockFloorSelectorProps {
