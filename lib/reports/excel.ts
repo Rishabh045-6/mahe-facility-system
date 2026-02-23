@@ -4,7 +4,7 @@ interface Issue {
   id: string
   block: string
   floor: string
-  room_location?: string
+  room_location?: string | null
   issue_type: string
   description: string
   is_movable: boolean

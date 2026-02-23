@@ -19,6 +19,7 @@ export interface Issue {
 
 export interface RoomInspection {
   id: string
+  date: string
   block: string
   floor: string
   room_number: string
