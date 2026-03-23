@@ -149,7 +149,7 @@ export async function GET(request: Request) {
 
         const rooms = sortedAssignments.map((assignment) => {
           const inspection = inspectionMap.get(makeRoomKey(assignment.block, assignment.floor, assignment.room_number)) ?? null
-          const status = inspection ? 'completed' : 'pending'
+          const status: "pending" | "completed" = inspection ? 'completed' : 'pending'
 
           if (status === 'completed') completed += 1
           else pending += 1

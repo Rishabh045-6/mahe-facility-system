@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
     
     // Get problematic locations
     const start = new Date(`${startDateStr}T00:00:00+05:30`).toISOString()
-    const endDate = new Date(`${endDateStr}T00:00:00+05:30`)
-    endDate.setDate(endDate.getDate() + 1)
+    const endDateIssues = new Date(`${endDateStr}T00:00:00+05:30`)
+    endDateIssues.setDate(endDateIssues.getDate() + 1)
 
     const { data: problematicRaw } = await supabase
       .from('issues')
       .select('block, floor, room_location')
       .gte('reported_at', start)
-      .lt('reported_at', endDate.toISOString())
+      .lt('reported_at', endDateIssues.toISOString())
 
     const locationMap: Record<string, { block: string; floor: string; room_location: string; count: number }> = {}
     for (const row of problematicRaw || []) {
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       .from('issues')
       .select('marshal_id, marshal_name')
       .gte('reported_at', start)
-      .lt('reported_at', endDate.toISOString())
+      .lt('reported_at', endDateIssues.toISOString())
 
     const marshalCounts: Record<string, { name: string; count: number }> = {}
     for (const row of marshalActivityRaw || []) {
