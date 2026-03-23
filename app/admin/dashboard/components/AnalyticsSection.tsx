@@ -3,6 +3,7 @@
 
 import { BarChart3, AlertTriangle, MapPin, CheckCircle2, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 
 interface Issue {
   block: string
@@ -107,6 +108,26 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
   )
 
   const problematicLocations = Object.values(locationCounts).sort((a, b) => b.count - a.count).slice(0, 5)
+
+  const issueTypeDistribution = useMemo(() => {
+    const counts = new Map<string, number>()
+    filteredIssues.forEach(issue => {
+      counts.set(issue.issue_type, (counts.get(issue.issue_type) || 0) + 1)
+    })
+    const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
+    const top5 = sorted.slice(0, 5)
+    const othersCount = sorted.slice(5).reduce((sum, [, count]) => sum + count, 0)
+    if (othersCount > 0) {
+      top5.push(['Others', othersCount])
+    }
+    const total = filteredIssues.length
+    return top5.map(([type, count]) => ({
+      type,
+      count,
+      percentage: total > 0 ? (count / total) * 100 : 0,
+      displayPercentage: total > 0 ? Math.round((count / total) * 100) : 0
+    }))
+  }, [filteredIssues])
 
   return (
     <div>
@@ -239,19 +260,20 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                 <p style={{ color: '#c4b5a0', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif" }}>No issues in this period</p>
               ) : (
                 topIssueTypes.map(([type, count], index) => (
-                  <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span
-                      style={{
-                        width: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: '700',
-                        color: '#c4b5a0',
-                        flexShrink: 0,
-                        fontFamily: "'DM Sans', sans-serif",
-                      }}
-                    >
-                      {index + 1}
-                    </span>
+                  <Link key={type} href={`/admin/issues?issue_type=${encodeURIComponent(type)}`}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span
+                        style={{
+                          width: '20px',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          color: '#c4b5a0',
+                          flexShrink: 0,
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >
+                        {index + 1}
+                      </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                         <span
@@ -275,8 +297,7 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                         <div style={{ height: '100%', width: `${(count / maxIssueCount) * 100}%`, backgroundColor: '#B4651E', borderRadius: '4px' }} />
                       </div>
                     </div>
-                  </div>
-                ))
+                  </div>                  </Link>                ))
               )}
             </div>
           </div>
@@ -347,6 +368,60 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                 ))
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Issue Type Distribution */}
+        <div style={subCard}>
+          <h3 style={sectionTitle}>
+            Issue Type Distribution
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {issueTypeDistribution.length === 0 ? (
+              <p style={{ color: '#c4b5a0', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif" }}>No issues in this period</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '50%',
+                      background: `conic-gradient(${issueTypeDistribution.map((item, index) => {
+                        const colors = ['#B4651E', '#10b981', '#ef4444', '#f59e0b', '#6b7280', '#8b5cf6']
+                        const start = issueTypeDistribution.slice(0, index).reduce((sum, i) => sum + i.percentage, 0)
+                        const end = start + item.percentage
+                        return `${colors[index % colors.length]} ${start}% ${end}%`
+                      }).join(', ')})`,
+                    }}
+                  />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {issueTypeDistribution.map((item, index) => {
+                      const colors = ['#B4651E', '#10b981', '#ef4444', '#f59e0b', '#6b7280', '#8b5cf6']
+                      return (
+                        <div key={item.type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            style={{
+                              width: '12px',
+                              height: '12px',
+                              borderRadius: '50%',
+                              backgroundColor: colors[index % colors.length],
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span style={{ fontSize: '0.8rem', color: '#1a1208', fontFamily: "'DM Sans', sans-serif", flex: 1 }}>
+                            {item.type}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif" }}>
+                            {item.count} ({item.displayPercentage}%)
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

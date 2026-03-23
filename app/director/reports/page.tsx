@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { FileText, Download, Mail, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase/client'
-import { formatDate } from '@/lib/utils/time'
+import { formatDateTime } from '@/lib/utils/time'
 
 export default function DirectorReportsPage() {
   const [loading, setLoading] = useState(true)
@@ -20,11 +20,15 @@ export default function DirectorReportsPage() {
       setLoading(true)
       
       // Fetch issues from the selected date
+      const start = new Date(`${selectedDate}T00:00:00+05:30`).toISOString()
+      const endDate = new Date(`${selectedDate}T00:00:00+05:30`)
+      endDate.setDate(endDate.getDate() + 1)
+
       const { data: issues, error } = await supabase
         .from('issues')
         .select('*')
-        .gte('reported_at', `${selectedDate}T00:00:00`)
-        .lte('reported_at', `${selectedDate}T23:59:59`)
+        .gte('reported_at', start)
+        .lt('reported_at', endDate.toISOString())
         .order('reported_at', { ascending: false })
       
       if (error) throw error
@@ -207,7 +211,7 @@ export default function DirectorReportsPage() {
                   <div className="flex items-center text-sm text-gray-500">
                     <span>Marshal: {report.marshals?.name || report.marshal_id}</span>
                     <span className="mx-2">•</span>
-                    <span>{formatDate(report.reported_at)}</span>
+                    <span>{formatDateTime(report.reported_at)}</span>
                   </div>
                 </div>
               ))}

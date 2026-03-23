@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { X } from 'lucide-react'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 
 interface RoomInspectionPayload {
   room: string
@@ -15,11 +14,16 @@ interface RoomIssuePayload {
   is_movable?: boolean
 }
 
+const ALLOW_MANUAL_FALLBACK =
+  process.env.ALLOW_MARSHAL_MANUAL_FALLBACK === 'true'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const checklistResponses = body.checklist_responses ?? body.checklistResponses ?? {}
     const { block, floor, issues, marshal_id: marshalId, marshal_name: marshalName } = body
+    const manualModeRequested = body.manual_mode === true
+    const manualMode = ALLOW_MANUAL_FALLBACK && manualModeRequested
 
     // Basic validation
     if (!block || !floor || !marshalId || !marshalName) {
@@ -35,6 +39,7 @@ export async function POST(request: NextRequest) {
       : []
 
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // ─── 0. Register marshal ────────────────────────────────────────────────
     await supabase.rpc('upsert_marshal_registry', {
@@ -83,6 +88,43 @@ export async function POST(request: NextRequest) {
       new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d) // YYYY-MM-DD
 
     const today = toISTDate(new Date())
+
+    if (!manualMode && parsedRoomInspections.length > 0) {
+      const submittedRooms = Array.from(
+        new Set(
+          parsedRoomInspections
+            .map((room: RoomInspectionPayload) => String(room.room ?? '').trim())
+            .filter(Boolean)
+        )
+      )
+
+      const { data: assignmentRows, error: assignmentError } = await adminSupabase
+        .from('room_assignments')
+        .select('room_number')
+        .eq('date', today)
+        .eq('block', block)
+        .eq('floor', floor)
+        .eq('marshal_id', marshalId)
+
+      if (assignmentError) {
+        return NextResponse.json(
+          { error: 'Failed to validate room assignments', details: assignmentError.message },
+          { status: 500 }
+        )
+      }
+
+      const assignedRooms = new Set((assignmentRows ?? []).map((row: { room_number: string }) => String(row.room_number).trim()))
+      const unassignedRooms = submittedRooms.filter(room => !assignedRooms.has(room))
+
+      if (unassignedRooms.length > 0) {
+        return NextResponse.json(
+          {
+            error: `You can only submit inspections for rooms assigned to you today. Unassigned room(s): ${unassignedRooms.join(', ')}`,
+          },
+          { status: 403 }
+        )
+      }
+    }
 
     if (parsedRoomInspections.length > 0) {
       const roomInspectionRecords = parsedRoomInspections.map((room: RoomInspectionPayload) => ({

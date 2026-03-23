@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import MarshalStatsWidget from './dashboard/components/MarshalStatsWidget'
 import SignOutButton from './dashboard/components/SignOutButton'
 
 export default async function AdminLayout({
@@ -65,10 +64,8 @@ export default async function AdminLayout({
             </div>
           </div>
 
-          {/* Right: stats widget + user info + sign out */}
+          {/* Right: user info + sign out */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <MarshalStatsWidget />
-
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#1a1208', margin: 0 }}>
                 {user.email}

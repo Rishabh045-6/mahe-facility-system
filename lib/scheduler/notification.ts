@@ -32,11 +32,15 @@ export class NotificationScheduler {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
 
       // Get today's issues using IST-aware bounds
+      const start = new Date(`${today}T00:00:00+05:30`).toISOString()
+      const endDate = new Date(`${today}T00:00:00+05:30`)
+      endDate.setDate(endDate.getDate() + 1)
+
       const { data: issues } = await supabase
         .from('issues')
         .select('*')
-        .gte('reported_at', `${today}T00:00:00+05:30`)
-        .lte('reported_at', `${today}T23:59:59+05:30`)
+        .gte('reported_at', start)
+        .lt('reported_at', endDate.toISOString())
 
       // FIX: Also fetch room_inspections and floor_coverage (were hardcoded as [] before)
       const { data: roomInspections } = await supabase

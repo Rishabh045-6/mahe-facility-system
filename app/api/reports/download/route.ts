@@ -64,11 +64,15 @@ export async function POST(request: NextRequest) {
 
     // ── Issues ────────────────────────────────────────────────────────────
     // Issues use a timestamp column so we query with IST-aware bounds
+    const start = new Date(`${today}T00:00:00+05:30`).toISOString()
+    const endDate = new Date(`${today}T00:00:00+05:30`)
+    endDate.setDate(endDate.getDate() + 1)
+
     const { data: issues, error: issuesError } = await supabase
       .from('issues')
       .select('*')
-      .gte('reported_at', `${today}T00:00:00+05:30`)
-      .lte('reported_at', `${today}T23:59:59+05:30`)
+      .gte('reported_at', start)
+      .lt('reported_at', endDate.toISOString())
       .order('reported_at', { ascending: false })
 
     if (issuesError) {

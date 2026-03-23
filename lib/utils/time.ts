@@ -59,7 +59,7 @@ export const isWithinGracePeriod = (): boolean => {
 
 // Check if form should be locked (past deadline AND past grace period)
 export const shouldLockForm = (): boolean => {
-  return !isBeforeDeadline() && !isWithinGracePeriod()
+  return false//!isBeforeDeadline() && !isWithinGracePeriod()
 }
 
 // Get time remaining until deadline as HH:MM:SS string
@@ -90,13 +90,19 @@ export const formatDate = (date: Date | string): string => {
   })
 }
 
-// Format time for display
-export const formatTime = (date: Date | string): string => {
+// Format date + time for display in IST
+export const formatDateTime = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'short',
   })
+}
+
+// Format time for compatibility
+export const formatTime = (date: Date | string): string => {
+  return formatDateTime(date)
 }
 
 // Get today's date string in IST (YYYY-MM-DD)

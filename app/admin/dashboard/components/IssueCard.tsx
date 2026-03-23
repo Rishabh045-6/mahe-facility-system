@@ -5,7 +5,7 @@ import {
   CheckCircle2, XCircle, Image as ImageIcon,
   MapPin, Clock, User, ChevronDown, ChevronUp, Tag, Package
 } from 'lucide-react'
-import { formatTime } from '@/lib/utils/time'
+import { formatDateTime } from '@/lib/utils/time'
 import IssueGallery from './IssueGallery'
 
 interface Issue {
@@ -111,7 +111,7 @@ export default function IssueCard({ issue, onStatusChange }: IssueCardProps) {
           }}>
             {metaItem(<MapPin size={13} color="#B4651E" />, `${issue.block}, Floor ${issue.floor}`)}
             {issue.room_location && metaItem(<Tag size={13} color="#B4651E" />, issue.room_location)}
-            {metaItem(<Clock size={13} color="#B4651E" />, formatTime(issue.reported_at))}
+            {metaItem(<Clock size={13} color="#B4651E" />, formatDateTime(issue.reported_at))}
             {metaItem(<User size={13} color="#B4651E" />, issue.marshals?.name || issue.marshal_id || 'Unknown')}
           </div>
 

@@ -12,12 +12,16 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
 
+    const start = new Date(`${today}T00:00:00+05:30`).toISOString()
+    const endDate = new Date(`${today}T00:00:00+05:30`)
+    endDate.setDate(endDate.getDate() + 1)
+
     // Fetch today's issues
     const { data: issues, error: dbError } = await supabase
       .from('issues')
       .select('*')
-      .gte('reported_at', `${today}T00:00:00`)
-      .lte('reported_at', `${today}T23:59:59`)
+      .gte('reported_at', start)
+      .lt('reported_at', endDate.toISOString())
       .order('reported_at', { ascending: false })
 
     if (dbError) {

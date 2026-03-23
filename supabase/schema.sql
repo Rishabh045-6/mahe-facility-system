@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS issues (
     marshal_name TEXT,
     status TEXT DEFAULT 'approved' CHECK (status IN ('approved', 'denied')),
     reported_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    reported_date_ist DATE GENERATED ALWAYS AS ((reported_at AT TIME ZONE 'Asia/Kolkata')::date) STORED,
     checklist_data JSONB,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS floor_coverage (
 -- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
-CREATE INDEX idx_issues_date ON issues(DATE(reported_at));
+CREATE INDEX idx_issues_date_ist ON issues(reported_date_ist);
 CREATE INDEX idx_issues_block ON issues(block);
 CREATE INDEX idx_issues_status ON issues(status);
 CREATE INDEX idx_issues_marshal ON issues(marshal_id);
@@ -245,7 +246,7 @@ BEGIN
   SELECT COUNT(DISTINCT marshal_id), COUNT(*)
   INTO v_unique, v_total
   FROM issues
-  WHERE DATE(reported_at) = p_date::DATE;
+  WHERE reported_date_ist = p_date::DATE;
 
   INSERT INTO daily_marshal_counts (date, unique_count, total_submissions)
   VALUES (p_date::DATE, v_unique, v_total)

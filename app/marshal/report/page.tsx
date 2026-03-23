@@ -28,6 +28,48 @@ type IssueFormItem = {
 
 type ServerRoomsByFloor = Record<string, Set<string>>
 
+type MarshalAssignedRoom = {
+  room_number: string
+  status: 'pending' | 'completed'
+  assignment: {
+    date: string
+    block: string
+    floor: string
+    room_number: string
+  }
+  inspection: {
+    id: string
+    marshal_id?: string | null
+    marshal_name?: string | null
+    has_issues?: boolean | null
+    created_at?: string | null
+  } | null
+}
+
+type MarshalAssignmentGroup = {
+  block: string
+  floors: Array<{
+    floor: string
+    pending_count: number
+    completed_count: number
+    rooms: MarshalAssignedRoom[]
+  }>
+}
+
+type MarshalAssignmentsResponse = {
+  date: string
+  marshal: {
+    marshal_id: string
+    marshal_name: string
+  }
+  summary: {
+    total_assigned: number
+    pending: number
+    completed: number
+  }
+  groups: MarshalAssignmentGroup[]
+}
+
 export default function MarshalReportPage() {
   const router = useRouter()
 
@@ -77,6 +119,10 @@ export default function MarshalReportPage() {
   const [roomImages, setRoomImages] = useState<Record<string, File[]>>({})
 
   const [serverRoomsByFloor, setServerRoomsByFloor] = useState<ServerRoomsByFloor>({})
+  const [assignedRoomsData, setAssignedRoomsData] = useState<MarshalAssignmentsResponse | null>(null)
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false)
+  const [assignmentsError, setAssignmentsError] = useState<string | null>(null)
+  const manualMode = false
 
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [showRoomSelector, setShowRoomSelector] = useState(false)
@@ -116,6 +162,32 @@ export default function MarshalReportPage() {
     return ROOM_NUMBERS[block]?.[floorNorm] ?? []
   }, [block, floorNorm])
 
+  const fetchAssignedRooms = useCallback(async (currentMarshalId: string, date: string) => {
+    try {
+      setAssignmentsLoading(true)
+      setAssignmentsError(null)
+
+      const response = await fetch(
+        `/api/marshal/assignments?date=${encodeURIComponent(date)}&marshal_id=${encodeURIComponent(currentMarshalId)}`,
+        { cache: 'no-store' }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to load assigned rooms')
+      }
+
+      setAssignedRoomsData(result)
+    } catch (error) {
+      console.error('Failed to load assigned rooms:', error)
+      setAssignmentsError(error instanceof Error ? error.message : 'Failed to load assigned rooms')
+      setAssignedRoomsData(null)
+    } finally {
+      setAssignmentsLoading(false)
+    }
+  }, [])
+
   const completedRoomsOnFloor = useMemo(() => {
     const serverSet = serverRoomsByFloor[floorNorm] ?? new Set<string>()
     let count = 0
@@ -127,6 +199,24 @@ export default function MarshalReportPage() {
     }
     return count
   }, [currentFloorRooms, floorNorm, serverRoomsByFloor, isRoomCompletedLocal])
+
+  const assignedRoomsFlat = useMemo(() => {
+    const rooms: Array<MarshalAssignedRoom & { block: string; floor: string }> = []
+
+    for (const group of assignedRoomsData?.groups ?? []) {
+      for (const floorGroup of group.floors) {
+        for (const room of floorGroup.rooms) {
+          rooms.push({
+            ...room,
+            block: group.block,
+            floor: floorGroup.floor,
+          })
+        }
+      }
+    }
+
+    return rooms
+  }, [assignedRoomsData])
 
   // ---------- Autosave draft ----------
   const handleAutoSave = useCallback(() => {
@@ -159,6 +249,7 @@ export default function MarshalReportPage() {
 
     setMarshalId(savedMarshalId)
     setMarshalName(savedMarshalName)
+    void fetchAssignedRooms(savedMarshalId, todayKey)
 
     const savedProgress = localStorage.getItem(`marshal_progress_${savedMarshalId}_${todayKey}`)
     if (savedProgress) {
@@ -171,7 +262,7 @@ export default function MarshalReportPage() {
     }
 
     setLoading(false)
-  }, [router, todayKey])
+  }, [router, todayKey, fetchAssignedRooms])
 
   // ---------- Load SERVER progress ----------
   useEffect(() => {
@@ -300,6 +391,31 @@ export default function MarshalReportPage() {
     }
   }
 
+  const handleAssignedRoomSelect = (nextBlock: Block, nextFloor: string, room: string) => {
+    const normalizedFloor = normalizeFloor(nextFloor)
+    const isContextSwitch = block !== nextBlock || floorNorm !== normalizedFloor
+
+    if (isContextSwitch) {
+      setRoomInspections({})
+      setRoomIssues({})
+      setRoomImages({})
+      setSelectedRoom('')
+    }
+
+    setBlock(nextBlock)
+    setFloor(normalizedFloor)
+    setShowRoomSelector(false)
+
+    setRoomInspections((prev) => {
+      const base = isContextSwitch ? {} : prev
+      if (base[room]) return base
+      return { ...base, [room]: getRoomDefaults(nextBlock, normalizedFloor, room) }
+    })
+    setSelectedRoom(room)
+
+    toast.success(`Selected ${nextBlock} Floor ${normalizedFloor} - Room ${room}`)
+  }
+
   const onRoomInspectionsChange = (next: Record<string, RoomInspection>) => {
     setRoomInspections(next)
   }
@@ -406,6 +522,23 @@ export default function MarshalReportPage() {
   const handleMoveNextRoom = () => {
     if (!block || !floorNorm) {
       toast.error('Select Block and Floor first')
+      return
+    }
+
+    if (!manualMode) {
+      const pendingAssignedRooms = assignedRoomsFlat.filter(
+        room => room.status === 'pending' && room.block === block && room.floor === floorNorm
+      )
+
+      if (!pendingAssignedRooms.length) {
+        toast('All assigned rooms for this floor are completed ✅')
+        return
+      }
+
+      const currentIndex = pendingAssignedRooms.findIndex(room => room.room_number === selectedRoom)
+      const nextAssignedRoom = pendingAssignedRooms[currentIndex + 1] ?? pendingAssignedRooms[0]
+
+      handleAssignedRoomSelect(block, floorNorm, nextAssignedRoom.room_number)
       return
     }
 
@@ -600,6 +733,7 @@ export default function MarshalReportPage() {
         marshal_name: marshalName,
         block,
         floor: floorNorm,
+        manual_mode: false,
         checklist_responses: checklistResponses,
         has_issues: issuesPayload.length > 0,
         room_inspections: roomInspectionPayload,
@@ -651,6 +785,9 @@ export default function MarshalReportPage() {
             next[f].add(r)
           }
           setServerRoomsByFloor(next)
+          if (marshalId) {
+            await fetchAssignedRooms(marshalId, today)
+          }
         } catch {}
       }, 300)
 
@@ -711,6 +848,7 @@ export default function MarshalReportPage() {
           marshal_name: marshalName,
           block,
           floor: floorNorm,
+          manual_mode: false,
           checklist_responses: checklistResponses,
           has_issues: issuesPayloadForQueue.length > 0,
           room_inspections: roomInspectionPayloadForQueue,
@@ -874,31 +1012,123 @@ export default function MarshalReportPage() {
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: 'clamp(12px, 4vw, 20px)', boxSizing: 'border-box' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '88px' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: 'clamp(14px, 3.6vw, 20px)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <BlockFloorSelector
-              block={block}
-              floor={floorNorm}
-              selectedRoom={selectedRoom}
-              roomInspections={roomInspections}
-              roomIssues={roomIssues}
-              roomImages={roomImages}
-              serverRoomsByFloor={serverRoomsByFloor}
-              isRoomCompleted={isRoomCompletedLocal}
-              markRoomCompleted={markRoomCompleted}
-              handleMoveNextRoom={handleMoveNextRoom}
-              onSaveIssue={handleSaveIssue}
-              onBlockChange={onBlockChange}
-              onFloorChange={onFloorChange}
-              onSelectedRoomChange={onSelectedRoomChange}
-              onRoomInspectionsChange={onRoomInspectionsChange}
-              setRoomHasIssues={setRoomHasIssues}
-              addIssueForRoom={addIssueForRoom}
-              updateIssueForRoom={updateIssueForRoom}
-              removeIssueForRoom={removeIssueForRoom}
-              handleImageUploadForRoom={handleImageUploadForRoom}
-              removeImageForRoom={removeImageForRoom}
-              disabled={formLocked}
-              normalizeFloor={normalizeFloor}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div>
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.1rem', fontWeight: '600', color: '#1a1208', margin: '0 0 8px' }}>
+                  My Assigned Rooms
+                </h3>
+                <p style={{ color: '#7a6a55', fontSize: '0.88rem', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                  Assigned rooms for {todayKey}. Pending rooms are actionable. Completed rooms are shown as read-only.
+                </p>
+              </div>
+
+              {assignmentsLoading ? (
+                <div style={{ color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem' }}>
+                  Loading assigned rooms...
+                </div>
+              ) : assignmentsError ? (
+                <div style={{ color: '#991b1b', backgroundColor: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.12)', borderRadius: '12px', padding: '12px 14px', fontFamily: "'DM Sans', sans-serif", fontSize: '0.88rem' }}>
+                  {assignmentsError}
+                </div>
+              ) : assignedRoomsData?.summary.total_assigned ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {assignedRoomsData.groups.map((group) => (
+                    <div key={group.block} style={{ border: '1px solid rgba(180,101,30,0.12)', borderRadius: '14px', backgroundColor: '#fffcf7', overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(180,101,30,0.08)', display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                        <strong style={{ color: '#1a1208', fontFamily: "'DM Sans', sans-serif" }}>{group.block}</strong>
+                        <span style={{ color: '#7a6a55', fontSize: '0.82rem', fontFamily: "'DM Sans', sans-serif" }}>
+                          {group.floors.reduce((sum, item) => sum + item.pending_count, 0)} pending • {group.floors.reduce((sum, item) => sum + item.completed_count, 0)} completed
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {group.floors.map((floorGroup) => (
+                          <div key={`${group.block}-${floorGroup.floor}`} style={{ padding: '14px 16px', borderTop: '1px solid rgba(180,101,30,0.06)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                              <strong style={{ color: '#1a1208', fontSize: '0.92rem', fontFamily: "'DM Sans', sans-serif" }}>
+                                Floor {floorGroup.floor}
+                              </strong>
+                              <span style={{ color: '#7a6a55', fontSize: '0.78rem', fontFamily: "'DM Sans', sans-serif" }}>
+                                {floorGroup.pending_count} pending • {floorGroup.completed_count} completed
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                              {floorGroup.rooms.map((room) => {
+                                const isCompleted = room.status === 'completed'
+                                return (
+                                  <button
+                                    key={`${group.block}-${floorGroup.floor}-${room.room_number}`}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!isCompleted) {
+                                        handleAssignedRoomSelect(group.block as Block, floorGroup.floor, room.room_number)
+                                      }
+                                    }}
+                                    disabled={isCompleted}
+                                    style={{
+                                      padding: '12px',
+                                      borderRadius: '12px',
+                                      border: isCompleted ? '1.5px solid rgba(22,163,74,0.22)' : '1.5px solid rgba(180,101,30,0.18)',
+                                      backgroundColor: isCompleted ? '#f0fdf4' : '#fff',
+                                      color: isCompleted ? '#166534' : '#1a1208',
+                                      cursor: isCompleted ? 'not-allowed' : 'pointer',
+                                      opacity: isCompleted ? 0.85 : 1,
+                                      textAlign: 'left',
+                                      fontFamily: "'DM Sans', sans-serif",
+                                    }}
+                                  >
+                                    <div style={{ fontWeight: '700', marginBottom: '4px' }}>
+                                      {room.room_number}
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: isCompleted ? '#166534' : '#7a6a55' }}>
+                                      {isCompleted ? 'Completed' : 'Pending'}
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ border: '1px solid rgba(180,101,30,0.12)', borderRadius: '14px', backgroundColor: '#fffcf7', padding: '16px', color: '#7a6a55', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem' }}>
+                  No rooms assigned for today.
+                </div>
+              )}
+
+              {selectedRoom && (
+                <BlockFloorSelector
+                  block={block}
+                  floor={floorNorm}
+                  selectedRoom={selectedRoom}
+                  roomInspections={roomInspections}
+                  roomIssues={roomIssues}
+                  roomImages={roomImages}
+                  serverRoomsByFloor={serverRoomsByFloor}
+                  isRoomCompleted={isRoomCompletedLocal}
+                  markRoomCompleted={markRoomCompleted}
+                  handleMoveNextRoom={handleMoveNextRoom}
+                  onSaveIssue={handleSaveIssue}
+                  onBlockChange={onBlockChange}
+                  onFloorChange={onFloorChange}
+                  onSelectedRoomChange={onSelectedRoomChange}
+                  onRoomInspectionsChange={onRoomInspectionsChange}
+                  setRoomHasIssues={setRoomHasIssues}
+                  addIssueForRoom={addIssueForRoom}
+                  updateIssueForRoom={updateIssueForRoom}
+                  removeIssueForRoom={removeIssueForRoom}
+                  handleImageUploadForRoom={handleImageUploadForRoom}
+                  removeImageForRoom={removeImageForRoom}
+                  disabled={formLocked}
+                  normalizeFloor={normalizeFloor}
+                  hideLocationSelectors
+                />
+              )}
+            </div>
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: 'clamp(14px, 3.6vw, 20px)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>

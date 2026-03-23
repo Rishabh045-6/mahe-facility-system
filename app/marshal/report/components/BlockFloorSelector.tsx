@@ -44,6 +44,7 @@ interface BlockFloorSelectorProps {
   handleMoveNextRoom: () => void
 
   disabled?: boolean
+  hideLocationSelectors?: boolean
 
   // ✅ Optional (if parent passes): shared server truth + normalizer
   serverRoomsByFloor?: Record<string, Set<string>>
@@ -120,6 +121,7 @@ export default function BlockFloorSelector({
   handleMoveNextRoom,
 
   disabled = false,
+  hideLocationSelectors = false,
 
   normalizeFloor,
 }: BlockFloorSelectorProps) {
@@ -299,10 +301,12 @@ export default function BlockFloorSelector({
           margin: '0 0 20px',
         }}
       >
-        Location Selection
+        {hideLocationSelectors ? 'Assigned Room Inspection' : 'Location Selection'}
       </h3>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {!hideLocationSelectors && (
+          <>
         {/* Block */}
         <div>
           <label
@@ -353,7 +357,7 @@ export default function BlockFloorSelector({
             !!normFloor && !!block,
           )}
 
-          {!block && (
+        {!block && (
             <p style={{ fontSize: '0.8rem', color: '#c4b5a0', marginTop: '6px', fontFamily: "'DM Sans', sans-serif" }}>
               Please select a block first
             </p>
@@ -394,6 +398,8 @@ export default function BlockFloorSelector({
             </p>
           )}
         </div>
+          </>
+        )}
 
         {/* Equipment form */}
         {block && normFloor && selectedRoom && currentInspection && (
@@ -709,7 +715,7 @@ export default function BlockFloorSelector({
       </div>
 
       {/* Block Modal */}
-      {showBlockModal && (
+      {!hideLocationSelectors && showBlockModal && (
         <div style={modalOverlay}>
           <div style={modalBox}>
             <div style={{ padding: '14px 24px', borderBottom: '1px solid rgba(180, 101, 30, 0.1)' }}>
@@ -773,7 +779,7 @@ export default function BlockFloorSelector({
       )}
 
       {/* Floor Modal (shows done/total) */}
-      {showFloorModal && block && (
+      {!hideLocationSelectors && showFloorModal && block && (
         <div style={modalOverlay}>
           <div style={modalBox}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(180, 101, 30, 0.1)' }}>
@@ -852,7 +858,7 @@ export default function BlockFloorSelector({
       )}
 
       {/* Room Modal (✅ ticks update immediately because hybrid done) */}
-      {showRoomModal && block && normFloor && (
+      {!hideLocationSelectors && showRoomModal && block && normFloor && (
         <div style={modalOverlay}>
           <div style={modalBox}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(180, 101, 30, 0.1)' }}>
