@@ -108,9 +108,6 @@ export default function HistoryClient() {
 
         const checklistMap: Record<string, number> = {}
         for (const r of (checklistRows || []) as any[]) {
-          const val = r.response
-          const isTrue = val === true || val === 'true' || val === 1 || val === '1'
-          if (!isTrue) continue
           const k = `${r.date}|${r.block}|${r.floor}|${r.marshal_id}`
           if (!keySet.has(k)) continue
           checklistMap[k] = (checklistMap[k] ?? 0) + 1

@@ -5,7 +5,6 @@ import { Building2, Layers, ChevronDown, DoorClosed, ClipboardSignature, CheckCi
 import { BLOCKS, FLOOR_CONFIG, ROOM_NUMBERS, type Block } from '@/lib/utils/constants'
 import { getRoomDefaults, type RoomInspection } from '@/lib/utils/room-default'
 import IssueForm from './IssueForm'
-import ImageUploader from './ImageUploader'
 import { SaveIssueButton } from './SaveIssueButton'
 
 type Issue = {
@@ -14,6 +13,7 @@ type Issue = {
   description: string
   is_movable: boolean
   room_location: string
+  images: File[]
   saved?: boolean
 }
 
@@ -24,7 +24,6 @@ interface BlockFloorSelectorProps {
   roomInspections: Record<string, RoomInspection>
 
   roomIssues: Record<string, Issue[]>
-  roomImages: Record<string, File[]>
 
   onBlockChange: (block: Block) => void
   onFloorChange: (floor: string) => void
@@ -36,8 +35,8 @@ interface BlockFloorSelectorProps {
   addIssueForRoom: (room: string) => void
   updateIssueForRoom: (room: string, id: number, field: string, value: any) => void
   removeIssueForRoom: (room: string, id: number) => void
-  handleImageUploadForRoom: (room: string, files: File[]) => void
-  removeImageForRoom: (room: string, index: number) => void
+  handleImageUploadForIssue: (room: string, issueId: number, files: File[]) => void
+  removeImageForIssue: (room: string, issueId: number, index: number) => void
 
   isRoomCompleted: (room: string) => boolean
   markRoomCompleted: (room: string) => void
@@ -100,7 +99,6 @@ export default function BlockFloorSelector({
   selectedRoom,
   roomInspections,
   roomIssues,
-  roomImages,
 
   onBlockChange,
   onFloorChange,
@@ -113,8 +111,8 @@ export default function BlockFloorSelector({
   addIssueForRoom,
   updateIssueForRoom,
   removeIssueForRoom,
-  handleImageUploadForRoom,
-  removeImageForRoom,
+  handleImageUploadForIssue,
+  removeImageForIssue,
 
   isRoomCompleted,
   markRoomCompleted,
@@ -190,7 +188,6 @@ export default function BlockFloorSelector({
 
   const currentInspection: RoomInspection | undefined = selectedRoom ? roomInspections[selectedRoom] : undefined
   const currentIssues: Issue[] = selectedRoom ? (roomIssues[selectedRoom] ?? []) : []
-  const currentImages: File[] = selectedRoom ? (roomImages[selectedRoom] ?? []) : []
   const currentHasIssues = !!currentInspection?.has_issues
 
   const ensureInspectionExists = (room: string) => {
@@ -471,7 +468,7 @@ export default function BlockFloorSelector({
           </div>
         )}
 
-        {/* Issue Declaration + IssueForm + ImageUploader */}
+        {/* Issue Declaration + IssueForm */}
         {selectedRoom && currentInspection && (
           <div style={{ marginTop: '18px' }}>
             <div style={innerCard}>
@@ -541,24 +538,14 @@ export default function BlockFloorSelector({
             </div>
 
             {currentHasIssues && (
-              <div style={{ ...innerCard, marginTop: '16px' }}>
+              <div ref={imagesSectionRef} style={{ ...innerCard, marginTop: '16px' }}>
                 <IssueForm
                   issues={currentIssues}
                   onAddIssue={() => addIssueForRoom(selectedRoom)}
                   onUpdateIssue={(id, field, value) => updateIssueForRoom(selectedRoom, id, field, value)}
                   onRemoveIssue={(id) => removeIssueForRoom(selectedRoom, id)}
-                  disabled={disabled}
-                />
-              </div>
-            )}
-
-            {currentHasIssues && (
-              <div style={{ ...innerCard, marginTop: '16px' }}>
-                <div ref={imagesSectionRef} />
-                <ImageUploader
-                  images={currentImages}
-                  onUpload={(files) => handleImageUploadForRoom(selectedRoom, files)}
-                  onRemove={(index) => removeImageForRoom(selectedRoom, index)}
+                  onUploadImages={(id, files) => handleImageUploadForIssue(selectedRoom, id, files)}
+                  onRemoveImage={(id, index) => removeImageForIssue(selectedRoom, id, index)}
                   disabled={disabled}
                 />
               </div>

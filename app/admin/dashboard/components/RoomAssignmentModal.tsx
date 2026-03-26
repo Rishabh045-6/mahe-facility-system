@@ -7,7 +7,7 @@ type AssignmentRoomState = {
   block: string
   floor: string
   room_number: string
-  category: 'not_assigned_not_covered' | 'assigned_not_covered' | 'assigned_covered' | 'unassigned_but_covered'
+  category: 'not_assigned_not_covered' | 'assigned_not_covered' | 'assigned_covered' 
   assignment: {
     marshal_id: string
     marshal_name?: string | null
@@ -121,8 +121,6 @@ export default function RoomAssignmentModal({
         return 'Assigned & Covered'
       case 'assigned_not_covered':
         return 'Assigned & Not Covered'
-      case 'unassigned_but_covered':
-        return 'Unassigned but Covered'
       default:
         return 'Not Assigned & Not Covered'
     }
@@ -402,3 +400,4 @@ export default function RoomAssignmentModal({
     </div>
   )
 }
+

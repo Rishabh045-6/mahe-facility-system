@@ -14,7 +14,6 @@ import { getRoomDefaults, type RoomInspection } from '@/lib/utils/room-default'
 import BlockFloorSelector from './components/BlockFloorSelector'
 import ChecklistSection from './components/ChecklistSection'
 import SubmissionSummary from './components/SubmissionSummary'
-import { SaveIssueButton } from './components/SaveIssueButton'
 import { supabase } from '@/lib/supabase/client'
 
 type IssueFormItem = {
@@ -23,6 +22,7 @@ type IssueFormItem = {
   description: string
   is_movable: boolean
   room_location: string
+  images: File[]
   saved?: boolean
 }
 
@@ -116,7 +116,6 @@ export default function MarshalReportPage() {
   const [selectedRoom, setSelectedRoom] = useState<string>('')
   const [roomInspections, setRoomInspections] = useState<Record<string, RoomInspection>>({})
   const [roomIssues, setRoomIssues] = useState<Record<string, IssueFormItem[]>>({})
-  const [roomImages, setRoomImages] = useState<Record<string, File[]>>({})
 
   const [serverRoomsByFloor, setServerRoomsByFloor] = useState<ServerRoomsByFloor>({})
   const [assignedRoomsData, setAssignedRoomsData] = useState<MarshalAssignmentsResponse | null>(null)
@@ -218,6 +217,18 @@ export default function MarshalReportPage() {
     return rooms
   }, [assignedRoomsData])
 
+  const getDraftRoomIssues = useCallback(() => {
+    return Object.fromEntries(
+      Object.entries(roomIssues).map(([room, list]) => [
+        room,
+        (list ?? []).map((issue) => ({
+          ...issue,
+          images: [],
+        })),
+      ])
+    )
+  }, [roomIssues])
+
   // ---------- Autosave draft ----------
   const handleAutoSave = useCallback(() => {
     const draft = {
@@ -228,14 +239,13 @@ export default function MarshalReportPage() {
       selectedRoom,
       checklistResponses,
       roomInspections,
-      roomIssues,
-      roomImagesCount: Object.fromEntries(Object.entries(roomImages).map(([k, v]) => [k, v.length])),
+      roomIssues: getDraftRoomIssues(),
       timestamp: new Date().toISOString(),
     }
     localStorage.setItem('marshalDraft', JSON.stringify(draft))
     setIsAutoSaving(true)
     setTimeout(() => setIsAutoSaving(false), 800)
-  }, [marshalId, marshalName, block, floorNorm, selectedRoom, checklistResponses, roomInspections, roomIssues, roomImages])
+  }, [marshalId, marshalName, block, floorNorm, selectedRoom, checklistResponses, roomInspections, getDraftRoomIssues])
 
   // ---------- Load marshal + local progress ----------
   useEffect(() => {
@@ -340,7 +350,6 @@ export default function MarshalReportPage() {
         setChecklistResponses(draft.checklistResponses || {})
         setRoomInspections(draft.roomInspections || {})
         setRoomIssues(draft.roomIssues || {})
-        setRoomImages({})
       }
     } catch (error) {
       console.error('Failed to load draft:', error)
@@ -369,7 +378,6 @@ export default function MarshalReportPage() {
     setSelectedRoom('')
     setRoomInspections({})
     setRoomIssues({})
-    setRoomImages({})
   }
 
   const onFloorChange = (f: string) => {
@@ -378,7 +386,6 @@ export default function MarshalReportPage() {
     setSelectedRoom('')
     setRoomInspections({})
     setRoomIssues({})
-    setRoomImages({})
   }
 
   const onSelectedRoomChange = (room: string) => {
@@ -398,7 +405,6 @@ export default function MarshalReportPage() {
     if (isContextSwitch) {
       setRoomInspections({})
       setRoomIssues({})
-      setRoomImages({})
       setSelectedRoom('')
     }
 
@@ -432,11 +438,6 @@ export default function MarshalReportPage() {
         delete copy[room]
         return copy
       })
-      setRoomImages((prev) => {
-        const copy = { ...prev }
-        delete copy[room]
-        return copy
-      })
     }
   }
 
@@ -449,6 +450,7 @@ export default function MarshalReportPage() {
         description: '',
         is_movable: false,
         room_location: `Room ${room}`,
+        images: [],
         saved: false,
       }
       return { ...prev, [room]: [...list, nextIssue] }
@@ -478,25 +480,48 @@ export default function MarshalReportPage() {
     })
   }
 
-  const handleImageUploadForRoom = (room: string, files: File[]) => {
+  const handleImageUploadForIssue = (room: string, issueId: number, files: File[]) => {
     if (!block || !floorNorm) {
       toast.error('Please select Block and Floor before adding images')
       return
     }
-    setRoomImages((prev) => {
-      const existing = prev[room] ?? []
-      if (existing.length + files.length > MAX_IMAGES_PER_ISSUE) {
-        toast.error(`Maximum ${MAX_IMAGES_PER_ISSUE} images allowed per room`)
-        return prev
-      }
-      return { ...prev, [room]: [...existing, ...files.slice(0, MAX_IMAGES_PER_ISSUE - existing.length)] }
+
+    setRoomIssues((prev) => {
+      const list = prev[room] ?? []
+      const nextList = list.map((issue) => {
+        if (issue.id !== issueId) return issue
+
+        const existing = issue.images ?? []
+        if (existing.length + files.length > MAX_IMAGES_PER_ISSUE) {
+          toast.error(`Maximum ${MAX_IMAGES_PER_ISSUE} images allowed per issue`)
+          return issue
+        }
+
+        return {
+          ...issue,
+          images: [...existing, ...files.slice(0, MAX_IMAGES_PER_ISSUE - existing.length)],
+          saved: false,
+        }
+      })
+
+      return { ...prev, [room]: nextList }
     })
   }
 
-  const removeImageForRoom = (room: string, index: number) => {
-    setRoomImages((prev) => {
-      const existing = prev[room] ?? []
-      return { ...prev, [room]: existing.filter((_, i) => i !== index) }
+  const removeImageForIssue = (room: string, issueId: number, index: number) => {
+    setRoomIssues((prev) => {
+      const list = prev[room] ?? []
+      const nextList = list.map((issue) => {
+        if (issue.id !== issueId) return issue
+
+        return {
+          ...issue,
+          images: (issue.images ?? []).filter((_, i) => i !== index),
+          saved: false,
+        }
+      })
+
+      return { ...prev, [room]: nextList }
     })
   }
 
@@ -665,20 +690,33 @@ export default function MarshalReportPage() {
     const toastId = toast.loading('Submitting report...')
 
     try {
-      const uploadedByRoom: Record<string, string[]> = {}
+      const issuesPayload: Array<{
+        room_location: string
+        issue_type: string
+        description: string
+        is_movable: boolean
+        images: string[]
+      }> = []
 
       if (derivedHasIssues) {
-        const rooms = Object.keys(roomImages)
-        if (rooms.length > 0) {
-          const { uploadImages } = await import('@/lib/storage/upload')
+        const { uploadImages } = await import('@/lib/storage/upload')
 
-          for (const room of rooms) {
-            const files = roomImages[room] ?? []
-            if (!files.length) continue
+        for (const [room, list] of Object.entries(roomIssues)) {
+          for (const issue of list ?? []) {
+            let uploadedImages: string[] = []
 
-            const folderKey = `${block}-${floorNorm}-room-${room}`
-            const paths = await uploadImages(files, block, folderKey)
-            uploadedByRoom[room] = paths
+            if ((issue.images ?? []).length > 0) {
+              const folderKey = `${block}-${floorNorm}-room-${room}-issue-${issue.id}`
+              uploadedImages = await uploadImages(issue.images, block, folderKey)
+            }
+
+            issuesPayload.push({
+              room_location: issue.room_location || `Room ${room}`,
+              issue_type: issue.issue_type,
+              description: issue.description,
+              is_movable: issue.is_movable ?? false,
+              images: uploadedImages,
+            })
           }
         }
       }
@@ -716,17 +754,6 @@ export default function MarshalReportPage() {
             })),
           }
         })
-
-      const issuesPayload = Object.entries(roomIssues).flatMap(([room, list]) => {
-        const imagesForRoom = uploadedByRoom[room] ?? []
-        return (list ?? []).map((issue) => ({
-          room_location: `Room ${room}`,
-          issue_type: issue.issue_type,
-          description: issue.description,
-          is_movable: issue.is_movable ?? false,
-          images: imagesForRoom,
-        }))
-      })
 
       const submissionData = {
         marshal_id: marshalId,
@@ -798,7 +825,6 @@ export default function MarshalReportPage() {
         setChecklistResponses({})
         setRoomInspections({})
         setRoomIssues({})
-        setRoomImages({})
         setIsSubmitting(false)
       }, 1200)
     } catch (error: unknown) {
@@ -810,7 +836,7 @@ export default function MarshalReportPage() {
         // not raw state objects which the API cannot parse
         const issuesPayloadForQueue = Object.entries(roomIssues).flatMap(([room, list]) =>
           (list ?? []).map((issue) => ({
-            room_location: `Room ${room}`,
+            room_location: issue.room_location || `Room ${room}`,
             issue_type: issue.issue_type,
             description: issue.description,
             is_movable: issue.is_movable ?? false,
@@ -903,9 +929,12 @@ export default function MarshalReportPage() {
   const totalRoomsOnFloor = currentFloorRooms.length || 1
   const progressPercentage = (completedRoomsOnFloor / totalRoomsOnFloor) * 100
 
-  const checklistCount = Object.values(checklistResponses).filter(Boolean).length
+  const checklistCount = Object.values(checklistResponses).filter(value => value !== undefined).length
   const issueCount = Object.values(roomIssues).reduce((acc, list) => acc + list.length, 0)
-  const imageCount = Object.values(roomImages).reduce((acc, list) => acc + list.length, 0)
+  const imageCount = Object.values(roomIssues).reduce(
+    (acc, list) => acc + list.reduce((issueAcc, issue) => issueAcc + (issue.images?.length ?? 0), 0),
+    0
+  )
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#faf8f5', paddingBottom: '80px' }}>
@@ -1107,7 +1136,6 @@ export default function MarshalReportPage() {
                   selectedRoom={selectedRoom}
                   roomInspections={roomInspections}
                   roomIssues={roomIssues}
-                  roomImages={roomImages}
                   serverRoomsByFloor={serverRoomsByFloor}
                   isRoomCompleted={isRoomCompletedLocal}
                   markRoomCompleted={markRoomCompleted}
@@ -1121,8 +1149,8 @@ export default function MarshalReportPage() {
                   addIssueForRoom={addIssueForRoom}
                   updateIssueForRoom={updateIssueForRoom}
                   removeIssueForRoom={removeIssueForRoom}
-                  handleImageUploadForRoom={handleImageUploadForRoom}
-                  removeImageForRoom={removeImageForRoom}
+                  handleImageUploadForIssue={handleImageUploadForIssue}
+                  removeImageForIssue={removeImageForIssue}
                   disabled={formLocked}
                   normalizeFloor={normalizeFloor}
                   hideLocationSelectors

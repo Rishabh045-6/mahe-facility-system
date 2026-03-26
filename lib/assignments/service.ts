@@ -250,7 +250,7 @@ export async function buildDashboardState(
     } else if (assignment && inspection) {
       category = 'assigned_covered'
     } else {
-      category = 'unassigned_but_covered'
+      category = 'assigned_covered'
     }
 
     return {
@@ -267,10 +267,6 @@ export async function buildDashboardState(
     assigned_covered: states.filter(room => room.category === 'assigned_covered'),
   }
 
-  const anomalies = {
-    unassigned_but_covered: states.filter(room => room.category === 'unassigned_but_covered'),
-  }
-
   const floors = states.reduce((acc, room) => {
     const key = `${room.block}|${room.floor}`
     if (!acc.has(key)) {
@@ -282,7 +278,6 @@ export async function buildDashboardState(
           not_assigned_not_covered: 0,
           assigned_not_covered: 0,
           assigned_covered: 0,
-          unassigned_but_covered: 0,
         },
         rooms: [] as AssignmentRoomState[],
       })
@@ -301,7 +296,6 @@ export async function buildDashboardState(
       not_assigned_not_covered: number
       assigned_not_covered: number
       assigned_covered: number
-      unassigned_but_covered: number
     }
     rooms: AssignmentRoomState[]
   }>())
@@ -313,10 +307,8 @@ export async function buildDashboardState(
       not_assigned_not_covered: categories.not_assigned_not_covered.length,
       assigned_not_covered: categories.assigned_not_covered.length,
       assigned_covered: categories.assigned_covered.length,
-      anomalies: anomalies.unassigned_but_covered.length,
     },
     categories,
-    anomalies,
     floors: [...floors.values()],
   }
 }
@@ -694,3 +686,5 @@ export async function executeConsecutiveAssignments(
     rooms: preview.rooms,
   }
 }
+
+

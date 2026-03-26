@@ -12,6 +12,7 @@ import { getTodayDateString } from '@/lib/utils/time'
 import IssueCard from './components/IssueCard'
 import FloorCoverageAlert from './components/FloorCoverageAlert'
 import AnalyticsSection from './components/AnalyticsSection'
+import ChecklistExceptionsSection from './components/ChecklistExceptionsSection'
 import RoomAssignmentModal from './components/RoomAssignmentModal'
 import CopyAssignmentsModal from './components/CopyAssignmentsModal'
 import ConsecutiveAssignmentModal from './components/ConsecutiveAssignmentModal'
@@ -41,7 +42,7 @@ type AssignmentRoomState = {
   room_number: string
   room_order: number
   floor_order: number
-  category: 'not_assigned_not_covered' | 'assigned_not_covered' | 'assigned_covered' | 'unassigned_but_covered'
+  category: 'not_assigned_not_covered' | 'assigned_not_covered' | 'assigned_covered' 
   assignment: {
     marshal_id: string
     marshal_name?: string | null
@@ -62,7 +63,6 @@ type AssignmentFloor = {
     not_assigned_not_covered: number
     assigned_not_covered: number
     assigned_covered: number
-    unassigned_but_covered: number
   }
   rooms: AssignmentRoomState[]
 }
@@ -74,24 +74,35 @@ type AssignmentDashboardData = {
     not_assigned_not_covered: number
     assigned_not_covered: number
     assigned_covered: number
-    anomalies: number
   }
   categories: {
     not_assigned_not_covered: AssignmentRoomState[]
     assigned_not_covered: AssignmentRoomState[]
     assigned_covered: AssignmentRoomState[]
   }
-  anomalies: {
-    unassigned_but_covered: AssignmentRoomState[]
-  }
   floors: AssignmentFloor[]
+}
+
+type ChecklistExceptionGroup = {
+  marshal_id: string
+  marshal_name: string
+  date: string
+  block: string
+  floor: string
+  items: Array<{
+    checklist_item_id: string
+    label: string
+    category: string
+  }>
 }
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [issues, setIssues] = useState<any[]>([])
+  const [analyticsIssues, setAnalyticsIssues] = useState<any[]>([])
   const [filteredIssues, setFilteredIssues] = useState<any[]>([])
   const [floorCoverage, setFloorCoverage] = useState<any[]>([])
+  const [checklistExceptions, setChecklistExceptions] = useState<ChecklistExceptionGroup[]>([])
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailLoading, setEmailLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'denied'>('all')
@@ -132,6 +143,20 @@ export default function AdminDashboardPage() {
     console.debug('[AdminDashboardPage] consecutive modal open state', showConsecutiveAssignmentsModal)
   }, [showConsecutiveAssignmentsModal])
 
+  const getISTDateParts = () => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+
+    return {
+      year: Number(parts.find((part) => part.type === 'year')?.value ?? '0'),
+      month: Number(parts.find((part) => part.type === 'month')?.value ?? '1'),
+    }
+  }
+
   const fetchDashboardData = async (showSpinner = false) => {
     try {
       if (showSpinner) setLoading(true)
@@ -150,6 +175,19 @@ export default function AdminDashboardPage() {
       if (issuesError) throw issuesError
       setIssues(issuesData || [])
 
+      const { year, month } = getISTDateParts()
+      const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0))
+      const nextMonthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+
+      const { data: analyticsIssuesData, error: analyticsIssuesError } = await supabase
+        .from('issues')
+        .select('*')
+        .gte('reported_at', new Date(`${monthStart.toISOString().slice(0, 10)}T00:00:00+05:30`).toISOString())
+        .lt('reported_at', new Date(`${nextMonthStart.toISOString().slice(0, 10)}T00:00:00+05:30`).toISOString())
+        .order('reported_at', { ascending: false })
+      if (analyticsIssuesError) throw analyticsIssuesError
+      setAnalyticsIssues(analyticsIssuesData || [])
+
       const { data: coverageData } = await supabase
         .from('floor_coverage')
         .select('*')
@@ -157,6 +195,13 @@ export default function AdminDashboardPage() {
         .order('block')
         .order('floor')
       setFloorCoverage(coverageData || [])
+
+      const analyticsResponse = await fetch('/api/analytics?days=30', { cache: 'no-store' })
+      const analyticsResult = await analyticsResponse.json()
+      if (!analyticsResponse.ok) {
+        throw new Error(analyticsResult.error || 'Failed to load analytics')
+      }
+      setChecklistExceptions(analyticsResult.data?.checklist_exceptions || [])
 
       calculateStats(issuesData || [])
     } catch (error) {
@@ -416,13 +461,6 @@ export default function AdminDashboardPage() {
           border: '1px solid rgba(245,158,11,0.2)',
           color: '#92400e',
         }
-      case 'unassigned_but_covered':
-        return {
-          label: 'Unassigned but Covered',
-          background: 'rgba(220,38,38,0.08)',
-          border: '1px solid rgba(220,38,38,0.18)',
-          color: '#991b1b',
-        }
       default:
         return {
           label: 'Not Assigned & Not Covered',
@@ -609,7 +647,7 @@ export default function AdminDashboardPage() {
         <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {assignmentError ? (
             <div style={{
-              padding: '16px 18px',
+              padding: '16px 8px',
               borderRadius: '12px',
               backgroundColor: 'rgba(220,38,38,0.06)',
               border: '1px solid rgba(220,38,38,0.15)',
@@ -653,12 +691,6 @@ export default function AdminDashboardPage() {
                     color: '#166534',
                     bg: 'rgba(22,163,74,0.08)',
                   },
-                  {
-                    label: 'Anomalies',
-                    value: assignmentData.summary.anomalies,
-                    color: '#991b1b',
-                    bg: 'rgba(220,38,38,0.08)',
-                  },
                 ].map((item) => (
                   <div key={item.label} style={{
                     padding: '18px 20px',
@@ -691,7 +723,7 @@ export default function AdminDashboardPage() {
                       <div
                         style={{
                           width: '100%',
-                          padding: '16px 18px',
+                          padding: '16px 4px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -725,7 +757,17 @@ export default function AdminDashboardPage() {
                           </div>
                         </button>
 
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <div style={{
+                          display: 'flex',
+                          padding: '6px 0',
+                          gap: '8px',
+                          rowGap: '8px',
+                          flexWrap: 'wrap',
+                          justifyContent: 'flex-start',
+                          alignItems: 'center',
+                          flex: '0 1 360px',
+                          minWidth: 0,
+                        }}>
                           <button
                             type="button"
                             onClick={() => handleClearFloorAssignments(floorItem.block, floorItem.floor)}
@@ -740,6 +782,8 @@ export default function AdminDashboardPage() {
                               fontWeight: '700',
                               cursor: assignmentLoading ? 'not-allowed' : 'pointer',
                               opacity: assignmentLoading ? 0.7 : 1,
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
                             }}
                           >
                             Clear Floor
@@ -748,7 +792,6 @@ export default function AdminDashboardPage() {
                             { label: 'Open', value: floorItem.counts.not_assigned_not_covered, color: '#7a6a55' },
                             { label: 'Assigned', value: floorItem.counts.assigned_not_covered, color: '#92400e' },
                             { label: 'Covered', value: floorItem.counts.assigned_covered, color: '#166534' },
-                            { label: 'Anomaly', value: floorItem.counts.unassigned_but_covered, color: '#991b1b' },
                           ].map((pill) => (
                             <span key={pill.label} style={{
                               padding: '4px 10px',
@@ -758,6 +801,8 @@ export default function AdminDashboardPage() {
                               color: pill.color,
                               fontSize: '0.75rem',
                               fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
                             }}>
                               {pill.label}: {pill.value}
                             </span>
@@ -829,86 +874,6 @@ export default function AdminDashboardPage() {
                     </div>
                   )
                 })}
-              </div>
-
-              <div style={{
-                border: '1px solid rgba(220,38,38,0.14)',
-                borderRadius: '14px',
-                backgroundColor: 'rgba(220,38,38,0.04)',
-                overflow: 'hidden',
-              }}>
-                <div style={{
-                  padding: '16px 18px',
-                  borderBottom: '1px solid rgba(220,38,38,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  flexWrap: 'wrap',
-                }}>
-                  <div>
-                    <p style={{ fontWeight: '700', color: '#991b1b', margin: '0 0 4px', fontSize: '0.95rem' }}>
-                      Unassigned but Covered
-                    </p>
-                    <p style={{ color: '#7a6a55', margin: 0, fontSize: '0.8rem' }}>
-                      Rooms covered without an explicit assignment row.
-                    </p>
-                  </div>
-                  <span style={{
-                    padding: '4px 10px',
-                    borderRadius: '999px',
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(220,38,38,0.14)',
-                    color: '#991b1b',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                  }}>
-                    {assignmentData.anomalies.unassigned_but_covered.length}
-                  </span>
-                </div>
-
-                {assignmentData.anomalies.unassigned_but_covered.length === 0 ? (
-                  <div style={{ padding: '18px', color: '#7a6a55', fontSize: '0.85rem' }}>
-                    No anomalies for this date.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {assignmentData.anomalies.unassigned_but_covered.map((room) => (
-                      <div
-                        key={`anomaly-${room.block}|${room.floor}|${room.room_number}`}
-                        style={{
-                          padding: '14px 18px',
-                          borderTop: '1px solid rgba(220,38,38,0.08)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '12px',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <div>
-                          <p style={{ fontWeight: '700', color: '#1a1208', margin: '0 0 4px', fontSize: '0.92rem' }}>
-                            {room.block} Floor {room.floor} • {room.room_number}
-                          </p>
-                          <p style={{ color: '#7a6a55', margin: 0, fontSize: '0.8rem' }}>
-                            Covered by {room.inspection?.marshal_name || room.inspection?.marshal_id || 'Unknown'}
-                          </p>
-                        </div>
-                        <span style={{
-                          padding: '6px 10px',
-                          borderRadius: '999px',
-                          backgroundColor: 'rgba(220,38,38,0.08)',
-                          border: '1px solid rgba(220,38,38,0.18)',
-                          color: '#991b1b',
-                          fontSize: '0.76rem',
-                          fontWeight: '700',
-                        }}>
-                          Review Needed
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </>
           ) : (
@@ -1031,6 +996,10 @@ export default function AdminDashboardPage() {
 
       {/* ── Issues List ─────────────────────────────────────────────────────── */}
       <div style={card}>
+        <ChecklistExceptionsSection items={checklistExceptions} />
+      </div>
+
+      <div style={card}>
         <div style={{
           padding: '20px 28px',
           borderBottom: '1px solid rgba(180, 101, 30, 0.1)',
@@ -1090,7 +1059,7 @@ export default function AdminDashboardPage() {
 
       {/* ── Analytics Section ───────────────────────────────────────────────── */}
       <div style={card}>
-        <AnalyticsSection issues={issues} />
+        <AnalyticsSection issues={analyticsIssues} />
       </div>
 
       {/* ── Email / Report Modal ────────────────────────────────────────────── */}
@@ -1228,3 +1197,4 @@ export default function AdminDashboardPage() {
     </div>
   )
 }
+

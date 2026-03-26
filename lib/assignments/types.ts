@@ -3,11 +3,7 @@ export type AssignmentCategoryKey =
   | 'assigned_not_covered'
   | 'assigned_covered'
 
-export type AssignmentAnomalyKey = 'unassigned_but_covered'
-
-export type AssignmentRoomStatus =
-  | AssignmentCategoryKey
-  | AssignmentAnomalyKey
+export type AssignmentRoomStatus = AssignmentCategoryKey
 
 export interface RoomUniverseItem {
   block: string
@@ -58,3 +54,4 @@ export interface AssignmentRoomState extends RoomUniverseItem {
   assignment: RoomAssignmentRow | null
   inspection: RoomInspectionRow | null
 }
+

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { ISSUE_TYPES } from '@/lib/utils/constants'
+import ImageUploader from './ImageUploader'
 
 interface Issue {
   id: number
@@ -10,6 +11,7 @@ interface Issue {
   description: string
   is_movable: boolean
   room_location: string
+  images: File[]
 }
 
 interface IssueFormProps {
@@ -17,6 +19,8 @@ interface IssueFormProps {
   onAddIssue: () => void
   onUpdateIssue: (id: number, field: string, value: any) => void
   onRemoveIssue: (id: number) => void
+  onUploadImages: (id: number, files: File[]) => void
+  onRemoveImage: (id: number, index: number) => void
   disabled?: boolean
 }
 
@@ -50,6 +54,8 @@ export default function IssueForm({
   onAddIssue,
   onUpdateIssue,
   onRemoveIssue,
+  onUploadImages,
+  onRemoveImage,
   disabled = false,
 }: IssueFormProps) {
   const [expandedIssue, setExpandedIssue] = useState<number | null>(
@@ -408,6 +414,16 @@ export default function IssueForm({
                         This is a movable item (e.g., chair, table)
                       </span>
                     </label>
+
+                    <div>
+                      <label style={fieldLabel}>Issue Images</label>
+                      <ImageUploader
+                        images={issue.images ?? []}
+                        onUpload={(files) => onUploadImages(issue.id, files)}
+                        onRemove={(index) => onRemoveImage(issue.id, index)}
+                        disabled={disabled}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

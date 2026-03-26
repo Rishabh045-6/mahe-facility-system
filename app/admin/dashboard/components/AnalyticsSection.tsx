@@ -4,6 +4,7 @@
 import { BarChart3, AlertTriangle, MapPin, CheckCircle2, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { getTodayDateString } from '@/lib/utils/time'
 
 interface Issue {
   block: string
@@ -37,30 +38,67 @@ const subCard: React.CSSProperties = {
   padding: '16px',
 }
 
-// ✅ robust local-range filter (fixes "Today" being always 0 due to timezone/string comparison)
+type TimeRange = 'today' | 'week' | 'month'
+
+const getISTDateParts = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  }).formatToParts(new Date())
+
+  return {
+    year: Number(parts.find((part) => part.type === 'year')?.value ?? '0'),
+    month: Number(parts.find((part) => part.type === 'month')?.value ?? '1'),
+    day: Number(parts.find((part) => part.type === 'day')?.value ?? '1'),
+    weekday: parts.find((part) => part.type === 'weekday')?.value ?? 'Mon',
+  }
+}
+
 function getRangeBounds(range: 'today' | 'week' | 'month') {
-  const now = new Date()
-  const end = new Date(now)
-  end.setHours(23, 59, 59, 999)
+  const today = getTodayDateString()
+  const todayStart = new Date(`${today}T00:00:00+05:30`)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
+  if (range === 'today') return { start: todayStart, end: tomorrowStart }
 
-  if (range === 'today') return { start, end }
+  const { year, month, day, weekday } = getISTDateParts()
 
   if (range === 'week') {
-    const weekStart = new Date(start)
-    weekStart.setDate(weekStart.getDate() - 6) // includes today + previous 6 days
-    return { start: weekStart, end }
+    const weekdayMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    }
+    const dayIndex = weekdayMap[weekday] ?? 1
+    const offsetToMonday = dayIndex === 0 ? 6 : dayIndex - 1
+    const weekStart = new Date(Date.UTC(year, month - 1, day - offsetToMonday, 0, 0, 0))
+    const nextWeekStart = new Date(Date.UTC(year, month - 1, day - offsetToMonday + 7, 0, 0, 0))
+
+    return {
+      start: new Date(`${weekStart.toISOString().slice(0, 10)}T00:00:00+05:30`),
+      end: new Date(`${nextWeekStart.toISOString().slice(0, 10)}T00:00:00+05:30`),
+    }
   }
 
-  const monthStart = new Date(start)
-  monthStart.setMonth(monthStart.getMonth() - 1)
-  return { start: monthStart, end }
+  const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0))
+  const nextMonthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+
+  return {
+    start: new Date(`${monthStart.toISOString().slice(0, 10)}T00:00:00+05:30`),
+    end: new Date(`${nextMonthStart.toISOString().slice(0, 10)}T00:00:00+05:30`),
+  }
 }
 
 export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today')
+  const [timeRange, setTimeRange] = useState<TimeRange>('today')
 
   const filteredIssues = useMemo(() => {
     const { start, end } = getRangeBounds(timeRange)
@@ -69,7 +107,7 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
       if (!issue.reported_at) return false
       const d = new Date(issue.reported_at)
       if (Number.isNaN(d.getTime())) return false
-      return d >= start && d <= end
+      return d >= start && d < end
     })
   }, [issues, timeRange])
 
@@ -260,8 +298,23 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                 <p style={{ color: '#c4b5a0', fontSize: '0.85rem', fontFamily: "'DM Sans', sans-serif" }}>No issues in this period</p>
               ) : (
                 topIssueTypes.map(([type, count], index) => (
-                  <Link key={type} href={`/admin/issues?issue_type=${encodeURIComponent(type)}`}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Link
+                    key={type}
+                    href={`/admin/issues?issue_type=${encodeURIComponent(type)}&range=${timeRange}`}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: '#fffcf7',
+                        border: '1px solid rgba(180,101,30,0.1)',
+                        transition: 'border-color 0.15s, background-color 0.15s',
+                      }}
+                    >
                       <span
                         style={{
                           width: '20px',
@@ -278,9 +331,9 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                         <span
                           style={{
-                            fontSize: '0.82rem',
-                            fontWeight: '600',
-                            color: '#1a1208',
+                            fontSize: '0.95rem',
+                            fontWeight: '700',
+                            color: '#8f4e16',
                             fontFamily: "'DM Sans', sans-serif",
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -289,7 +342,19 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                         >
                           {type}
                         </span>
-                        <span style={{ fontSize: '0.75rem', color: '#7a6a55', flexShrink: 0, marginLeft: '8px', fontFamily: "'DM Sans', sans-serif" }}>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#7a6a55',
+                            flexShrink: 0,
+                            marginLeft: '8px',
+                            fontFamily: "'DM Sans', sans-serif",
+                            backgroundColor: '#fdf6ef',
+                            border: '1px solid rgba(180,101,30,0.14)',
+                            borderRadius: '999px',
+                            padding: '2px 8px',
+                          }}
+                        >
                           {count}
                         </span>
                       </div>
@@ -297,7 +362,9 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                         <div style={{ height: '100%', width: `${(count / maxIssueCount) * 100}%`, backgroundColor: '#B4651E', borderRadius: '4px' }} />
                       </div>
                     </div>
-                  </div>                  </Link>                ))
+                    </div>
+                  </Link>
+                ))
               )}
             </div>
           </div>
@@ -333,8 +400,8 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                       <div style={{ minWidth: 0 }}>
                         <p
                           style={{
-                            fontSize: '0.82rem',
-                            fontWeight: '600',
+                            fontSize: '0.95rem',
+                            fontWeight: '700',
                             color: '#1a1208',
                             margin: '0 0 2px',
                             fontFamily: "'DM Sans', sans-serif",
@@ -345,7 +412,7 @@ export default function AnalyticsSection({ issues }: AnalyticsSectionProps) {
                         >
                           {loc.location}
                         </p>
-                        <p style={{ fontSize: '0.72rem', color: '#7a6a55', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                        <p style={{ fontSize: '0.78rem', color: '#7a6a55', margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
                           {loc.count} issue{loc.count !== 1 ? 's' : ''} reported
                         </p>
                       </div>

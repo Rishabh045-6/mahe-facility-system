@@ -59,7 +59,7 @@ export const isWithinGracePeriod = (): boolean => {
 
 // Check if form should be locked (past deadline AND past grace period)
 export const shouldLockForm = (): boolean => {
-  return false//!isBeforeDeadline() && !isWithinGracePeriod()
+  return !isBeforeDeadline() && !isWithinGracePeriod()
 }
 
 // Get time remaining until deadline as HH:MM:SS string
